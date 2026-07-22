@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AnimeKT</title>
+    <style>
+        /* Un poco de CSS básico para que no se vea tan vacío */
+        body { font-family: Arial, sans-serif; padding: 20px; background-color: #f4f4f9; }
+        .login-container { background: white; padding: 20px; border-radius: 8px; max-width: 400px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        input, button { display: block; width: 100%; margin: 10px 0; padding: 10px; box-sizing: border-box; }
+        #code-section { display: none; /* Oculto hasta que se envíe el teléfono */ }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <h1>Bienvenido a AnimeKT</h1>
+        <p>Inicia sesión con Telegram para continuar</p>
+        
+        <!-- Sección para pedir el teléfono -->
+        <div id="phone-section">
+            <input type="text" id="phone-input" placeholder="Tu número (+1234567890)">
+            <button id="send-code-btn">Enviar Código</button>
+        </div>
+
+        <!-- Sección para pedir el código de verificación -->
+        <div id="code-section">
+            <input type="text" id="code-input" placeholder="Código de verificación">
+            <button id="verify-code-btn">Iniciar Sesión</button>
+        </div>
+        
+        <p id="status-message"></p>
+    </div>
+
+    <script type="module" src="/main.js"></script>
+</body>
+</html>
