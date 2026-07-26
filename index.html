@@ -1,37 +1,40 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AnimeKT</title>
-    <style>
-        /* Un poco de CSS básico para que no se vea tan vacío */
-        body { font-family: Arial, sans-serif; padding: 20px; background-color: #f4f4f9; }
-        .login-container { background: white; padding: 20px; border-radius: 8px; max-width: 400px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        input, button { display: block; width: 100%; margin: 10px 0; padding: 10px; box-sizing: border-box; }
-        #code-section { display: none; /* Oculto hasta que se envíe el teléfono */ }
-    </style>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login - AnimeKT</title>
+    <link rel="icon" type="image/x-icon" href="/favicon.png">
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div class="login-container">
-        <h1>Bienvenido a AnimeKT</h1>
-        <p>Inicia sesión con Telegram para continuar</p>
+    <div id="login-section" class="login-card">
+        <h1>AnimeKT</h1>
         
-        <!-- Sección para pedir el teléfono -->
-        <div id="phone-section">
-            <input type="text" id="phone-input" placeholder="Tu número (+1234567890)">
-            <button id="send-code-btn">Enviar Código</button>
+        <div id="api-credentials-step">
+            <p style="color: var(--secondary-text-color); margin-bottom: 15px;">Configura tu conexión</p>
+            <label style="color: #ccc; font-size: 13px; display: block; margin-bottom: 5px; text-align: left;">API ID:</label>
+            <input type="number" id="user-api-id" placeholder="Ej: 1234567" style="margin-bottom: 15px;" />
+            <label style="color: #ccc; font-size: 13px; display: block; margin-bottom: 5px; text-align: left;">API HASH:</label>
+            <input type="text" id="user-api-hash" placeholder="Ej: 274305..." style="margin-bottom: 20px;" />
+            <button id="btn-save-api" class="action-btn">Guardar y continuar</button>
         </div>
 
-        <!-- Sección para pedir el código de verificación -->
-        <div id="code-section">
-            <input type="text" id="code-input" placeholder="Código de verificación">
-            <button id="verify-code-btn">Iniciar Sesión</button>
+        <div id="login-methods-container" class="hidden">
+            <p style="color: var(--secondary-text-color); margin-bottom: 15px;">Iniciar sesión</p>
+            <div id="flow-phone">
+                <div id="step-phone">
+                    <input type="text" id="phone-input" placeholder="Número (Ej: +34600000000)" />
+                    <button id="btn-send-code" class="action-btn">Enviar Código</button>
+                </div>
+                <div id="step-code" class="hidden">
+                    <input type="text" id="code-input" placeholder="Código de Telegram" />
+                    <button id="btn-verify-code" class="action-btn">Verificar</button>
+                </div>
+            </div>
         </div>
-        
-        <p id="status-message"></p>
     </div>
-
-    <script type="module" src="/main.js"></script>
+    
+    <script type="module" src="/login.js"></script>
 </body>
 </html>

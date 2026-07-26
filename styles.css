@@ -1,0 +1,875 @@
+:root {
+    --background-color: #181818;
+    --surface-color: #212121;
+    --primary-text-color: #ffffff;
+    --secondary-text-color: #aaaaaa;
+    --primary-color: #8774e1;
+    --menu-bg: #2b2b2b;
+}
+
+body {
+    background-color: var(--background-color);
+    color: var(--primary-text-color);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    /* Eliminamos el flexbox centrado y el padding lateral global */
+    margin: 0;
+    padding: 0;
+    padding-top: 65px; /* Solo dejamos espacio exacto para que el navbar fijo no lo tape */
+    box-sizing: border-box;
+    overflow-x: hidden; /* Evita cualquier scroll horizontal indeseado */
+}
+
+.login-card { 
+    background: var(--surface-color); 
+    padding: 30px; 
+    border-radius: 12px; 
+    box-shadow: 0 4px 15px rgba(0,0,0,0.5); 
+    text-align: center; 
+    max-width: 400px; 
+    width: 100%; 
+
+    /* AGREGAR ESTO: Centrado perfecto en pantalla */
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+input { width: 100%; padding: 12px; margin: 10px 0; border-radius: 6px; border: 1px solid #444; background: #333; color: white; box-sizing: border-box; }
+button.action-btn { width: 100%; padding: 12px; background-color: var(--primary-color); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 16px; margin-top: 10px;}
+button.action-btn:hover { filter: brightness(1.1); }
+.hidden { display: none !important; }
+
+.header { text-align: center; margin: 0 auto 20px auto; width: 100%; max-width: 1400px; }
+h1 { margin: 0; font-size: 22px; font-weight: 600; }
+h2 { margin: 10px 0 0 0; color: var(--secondary-text-color); font-size: 16px; font-weight: normal; background: var(--surface-color); padding: 15px; border-radius: 10px; }
+
+/* Ocultar el resto de UI por ahora hasta que el login funcione */
+.player-section, .episodes-container { display: none; }
+
+/* =========================================
+   BARRA DE NAVEGACIÓN (HEADER)
+   ========================================= */
+.navbar {
+    width: 100%;
+    background-color: var(--surface-color);
+    padding: 8px 40px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-sizing: border-box;
+    position: fixed; /* Fija la barra en la parte superior */
+    top: 0;
+    left: 0;
+    z-index: 1000;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+
+/* Evita que el contenido de la página se esconda debajo de la barra fija */
+body {
+    padding-top: 50px; 
+}
+
+.nav-left {
+    display: flex;
+    align-items: center;
+    gap: 40px;
+}
+
+.logo {
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--primary-color);
+    text-decoration: none;
+    letter-spacing: 1px;
+}
+
+.nav-links {
+    list-style: none;
+    display: flex;
+    gap: 25px;
+    margin: 0;
+    padding: 0;
+}
+
+.nav-links a {
+    color: var(--secondary-text-color);
+    text-decoration: none;
+    font-size: 15px;
+    font-weight: 500;
+    transition: color 0.3s;
+}
+
+.nav-links a:hover {
+    color: var(--primary-text-color);
+}
+
+.nav-right {
+    display: flex;
+    align-items: center;
+    gap: 25px;
+}
+
+/* Buscador */
+search-box {
+    display: flex;
+    align-items: center;
+    background: var(--background-color);
+    border-radius: 30px; /* Forma de píldora más pronunciada */
+    padding: 6px 15px;
+    border: 1px solid #444;
+    position: relative;
+    overflow: hidden; /* Para contener el efecto de luz */
+    
+    /* Transición elástica suave */
+    transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+/* Efecto al pasar el ratón (Hover) */
+.search-box:hover {
+    border-color: #666;
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3);
+}
+
+/* Efecto al hacer clic dentro del buscador (Focus) */
+.search-box:focus-within {
+    border-color: var(--accent-color);
+    box-shadow: 0 0 15px rgba(0, 255, 204, 0.2), 0 0 5px var(--accent-color) inset;
+    background: #111;
+}
+
+/* El Input */
+.search-box input {
+    background: transparent;
+    border: none;
+    color: white;
+    padding: 8px 5px;
+    outline: none;
+    width: 200px;
+    margin: 0;
+    font-size: 15px;
+    /* Transición para cuando cambie de tamaño */
+    transition: width 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+/* Expansión del input al hacer clic */
+.search-box:focus-within input {
+    width: 280px; /* Se hace más ancho suavemente */
+}
+
+/* Animación del placeholder */
+.search-box input::placeholder {
+    color: var(--secondary-text-color);
+    transition: opacity 0.3s ease;
+}
+
+.search-box:focus-within input::placeholder {
+    opacity: 0.4; /* Se desvanece un poco al escribir */
+}
+
+/* El Botón */
+.search-box button {
+    background: transparent;
+    border: none;
+    color: var(--secondary-text-color);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 5px;
+    border-radius: 50%;
+    transition: all 0.3s ease;
+}
+
+/* Efecto del botón al pasar el ratón */
+.search-box button:hover {
+    color: var(--accent-color);
+    transform: scale(1.15) rotate(5deg); /* Pequeño salto y rotación */
+}
+
+/* Mantiene el color del botón cuando el buscador está activo */
+.search-box:focus-within button {
+    color: var(--accent-color);
+}
+
+/* --- EL TOQUE EXTRA: Efecto de barrido de luz --- */
+.search-box::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 50%;
+    height: 100%;
+    background: linear-gradient(
+        to right, 
+        transparent, 
+        rgba(255, 255, 255, 0.08), 
+        transparent
+    );
+    transform: skewX(-20deg);
+}
+
+/* Dispara el barrido de luz al hacer hover */
+.search-box:hover::before {
+    left: 150%;
+    transition: all 0.7s ease;
+}
+
+/* Menú de Perfil Desplegable */
+.profile-menu {
+    position: relative;
+    cursor: pointer;
+    /* Añadimos este padding para cubrir el espacio muerto */
+    padding-bottom: 10px; 
+}
+
+.profile-icon {
+    background: var(--primary-color);
+    border-radius: 50%;
+    width: 38px;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border: 2px solid rgba(255,255,255,0.2);
+}
+
+.profile-icon img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.dropdown-content {
+    display: none;
+    position: absolute;
+    right: 0;
+    /* Cambiamos el top de 45px a 100% para que empiece justo después del padding */
+    top: 100%; 
+    background-color: var(--surface-color);
+    min-width: 160px;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.5);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.dropdown-content a {
+    color: white;
+    padding: 12px 16px;
+    text-decoration: none;
+    display: block;
+    font-size: 14px;
+}
+
+.dropdown-content a:hover {
+    background-color: var(--menu-bg);
+}
+
+.dropdown-content.show {
+    display: block !important;
+}
+/* =========================================
+   HERO SECTION (Banner Principal)
+   ========================================= */
+.hero-section {
+    position: relative;
+    width: 100%;
+    height: 85vh; /* Aumentamos de 70vh a 85vh para que baje más */
+    min-height: 650px; /* Aumentamos la altura mínima */
+    background-color: #000000;
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+    margin-top: 0;
+}
+
+/* El Slide que contiene todo */
+.hero-slide {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    position: relative;
+    /* Simulación de la imagen con un degradado que se funde con el negro */
+    background: linear-gradient(to right, #000000 35%, rgba(0,0,0,0.6) 55%, transparent 100%), 
+                linear-gradient(45deg, #2b2b2b, #444); /* Este último gradient simula donde iría la imagen real */
+    background-size: cover;
+    background-position: right center;
+}
+
+/* Contenido izquierdo (Caja de descripción y botones) */
+.hero-content {
+    width: 45%;
+    max-width: 520px; /* <--- Esto frena el crecimiento de la caja para que no se expanda de más con la pantalla grande */
+    padding: 0 40px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    z-index: 2;
+    position: relative;
+    height: 100%;
+    box-sizing: border-box;
+}
+
+.hero-title-img {
+    font-size: 2rem; /* <--- Reducimos un poquito más el tamaño para que los títulos largos encajen perfecto en 3 líneas */
+    font-weight: 900;
+    margin-bottom: 10px;
+    line-height: 1.15; /* Un pequeño respiro entre línea y línea */
+    color: #ffffff;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+    font-family: 'Montserrat', sans-serif; /* O la fuente que estés usando */
+    word-break: break-word;
+    overflow-wrap: break-word;
+}
+
+/* Metadatos (16+, géneros) */
+.hero-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+    font-size: 13px;
+    color: var(--secondary-text-color);
+}
+
+.age-rating {
+    background: rgba(255,255,255,0.2);
+    padding: 2px 6px;
+    border-radius: 3px;
+    color: white;
+    font-weight: bold;
+}
+
+/* Caja de descripción */
+.hero-description {
+    font-size: 15px; /* Un pelín más grande para mejor lectura */
+    line-height: 1.5;
+    color: #cccccc;
+    margin-bottom: 30px;
+    max-width: 500px; /* <--- Esto forzará el texto a verse en formato bloque */
+    display: -webkit-box;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* Contenedor de Botones */
+.hero-actions {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+    margin-bottom: 40px;
+}
+
+/* Botón Principal (Continuar viendo) */
+.btn-hero-primary {
+    background-color: var(--primary-color); /* Usa el morado de tu web */
+    /* background-color: #f47521; // Descomenta esta línea si prefieres el Naranja de Crunchyroll */
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: filter 0.2s;
+}
+
+.btn-hero-primary:hover {
+    filter: brightness(1.2);
+}
+
+/* Botón de Marcador (Añadir a lista) */
+.btn-hero-secondary {
+    background-color: transparent;
+    color: var(--primary-color);
+    border: 2px solid var(--primary-color);
+    width: 44px;
+    height: 44px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-hero-secondary:hover {
+    background-color: rgba(135, 116, 225, 0.2);
+}
+
+/* Indicadores tipo rayitas (Carousel) */
+.hero-indicators {
+    display: flex;
+    gap: 8px;
+    position: absolute;
+    bottom: 160px; 
+    left: 40px;
+    z-index: 10;
+    align-items: center;
+}
+
+/* Las rayitas inactivas (cortas) */
+.indicator {
+    width: 18px; /* Rayita corta por defecto */
+    height: 9px;  
+    background-color: rgba(255, 255, 255, 0.4);
+    border-radius: 4px;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    display: inline-block;
+    /* Transición suave para cuando se estira */
+    transition: width 0.3s ease, background-color 0.3s ease;
+}
+
+.indicator:hover {
+    background-color: rgba(255, 255, 255, 0.6);
+}
+
+/* La rayita ACTIVA (se alarga automáticamente) */
+.indicator.active {
+    width: 55px; /* Se hace larga al activarse */
+}
+
+/* La barra de progreso interna que se llena */
+.indicator::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 0%;
+    background-color: var(--primary-color);
+    border-radius: 4px;
+}
+
+/* Dispara la animación de carga de 5 segundos solo en la activa */
+.indicator.active::after {
+    animation: fillProgress 5s linear forwards; 
+}
+
+@keyframes fillProgress {
+    0% { width: 0%; }
+    100% { width: 100%; }
+}
+/* Flechas de Navegación */
+.hero-arrow {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: transparent;
+    border: none;
+    color: white;
+    font-size: 30px;
+    cursor: pointer;
+    z-index: 10;
+    padding: 20px 10px;
+    opacity: 0.5;
+    transition: opacity 0.3s, transform 0.2s;
+}
+
+.hero-arrow:hover {
+    opacity: 1;
+    transform: translateY(-50%) scale(1.2);
+}
+
+.left-arrow { left: 10px; }
+.right-arrow { right: 10px; }
+
+/* Responsive básico para pantallas más pequeñas */
+@media (max-width: 768px) {
+    .hero-content {
+        width: 100%;
+        padding: 0 30px;
+        background: linear-gradient(to top, #000000 60%, transparent 100%);
+        justify-content: flex-end;
+        padding-bottom: 60px;
+    }
+    .hero-slide {
+        background-position: center;
+    }
+}
+
+.hero-section::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 180px; /* Altura del difuminado */
+    /* Se funde desde el color de fondo de tu web hacia arriba */
+    background: linear-gradient(to top, var(--background-color) 0%, transparent 100%);
+    z-index: 3;
+    pointer-events: none; /* Evita que esta capa bloquee los clics en los botones */
+}
+
+/* =========================================
+   SECCIÓN CATÁLOGO (Slider de Tarjetas)
+   ========================================= */
+.catalog-section {
+    width: 100%;
+    padding: 0 40px 40px 40px; /* Quitamos el padding de arriba (estaba en 30px) */
+    box-sizing: border-box;
+    position: relative;
+    z-index: 10; /* Asegura que el catálogo flote POR ENCIMA del Hero */
+    
+    /* LA MAGIA: Esto jala toda la sección del catálogo hacia arriba, montándola en el Hero */
+    margin-top: -120px; 
+    
+    /* El fondo empieza transparente para que se vea el arte del anime, 
+       y luego se difumina hacia el color oscuro de tu página */
+    background: linear-gradient(to bottom, transparent 0%, var(--background-color) 100px);
+}
+
+/* Reset de tu H2 global para que este título quede limpio */
+h2.section-title {
+    font-size: 26px;
+    font-weight: 800;
+    color: var(--primary-text-color);
+    background: transparent;
+    padding: 0;
+    margin-bottom: 25px;
+    border-radius: 0;
+}
+
+/* =========================================
+   ESQUELETOS DE CARGA (SKELETON LOADING)
+   ========================================= */
+.skeleton-card {
+    pointer-events: none;
+}
+
+.skeleton-anim {
+    background-color: #333333;
+    animation: skeletonPulse 1.5s infinite ease-in-out;
+}
+
+.skeleton-text {
+    border-radius: 4px;
+}
+
+.skeleton-title {
+    height: 14px;
+    width: 85%;
+    margin-top: 14px;
+    margin-bottom: 8px;
+}
+
+.skeleton-tags {
+    height: 10px;
+    width: 50%;
+}
+
+@keyframes skeletonPulse {
+    0% { opacity: 0.5; }
+    50% { opacity: 1; }
+    100% { opacity: 0.5; }
+}
+
+.carousel-container {
+    position: relative;
+    width: 100%;
+}
+
+.carousel-track {
+    display: grid;
+    /* Esto calcula automáticamente cuántas tarjetas caben en tu pantalla */
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 20px;
+    padding-bottom: 40px;
+}
+.carousel-track::-webkit-scrollbar {
+    display: none; 
+}
+
+/* --- TARJETA INDIVIDUAL --- */
+.anime-card {
+    width: 100%; /* Ahora el ancho lo controla la cuadrícula */
+    display: flex;
+    flex-direction: column;
+    cursor: pointer;
+}
+
+.card-image-wrapper {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 2 / 3; /* Proporción clásica de póster vertical */
+    border-radius: 6px;
+    overflow: hidden;
+    background-color: var(--surface-color);
+}
+
+.card-image {
+    width: 100%;
+    height: 100%;
+    background-size: cover;
+    background-position: center;
+    transition: transform 0.4s ease;
+}
+
+/* --- ESTADO HOVER (El overlay oscuro que aparece) --- */
+.card-hover-content {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.9);
+    display: flex;
+    flex-direction: column;
+    padding: 15px;
+    box-sizing: border-box;
+    opacity: 0; /* Oculto por defecto */
+    transition: opacity 0.3s ease;
+    z-index: 2;
+}
+
+.anime-card:hover .card-hover-content {
+    opacity: 1; /* Aparece al pasar el ratón */
+}
+
+.anime-card:hover .card-image {
+    transform: scale(1.1); /* Efecto de zoom sutil de fondo */
+}
+
+/* Textos dentro del Hover */
+.hover-title {
+    color: white;
+    font-size: 14px;
+    font-weight: 700;
+    margin: 0 0 6px 0;
+}
+
+.hover-stats, .hover-meta {
+    color: var(--secondary-text-color);
+    font-size: 11px;
+    margin-bottom: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.hover-description {
+    color: #cccccc;
+    font-size: 11px;
+    line-height: 1.4;
+    margin: 8px 0 auto 0; /* El "auto" empuja los botones al fondo */
+    display: -webkit-box;
+    -webkit-line-clamp: 6; /* Corta el texto si es muy largo */
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* Botones flotantes abajo en el hover */
+.hover-actions {
+    display: flex;
+    gap: 15px;
+    margin-top: 10px;
+}
+
+.action-icon {
+    background: transparent;
+    border: none;
+    color: var(--primary-color);
+    cursor: pointer;
+    padding: 0;
+    transition: color 0.2s, transform 0.2s;
+}
+
+.action-icon:hover {
+    color: white;
+    transform: scale(1.2);
+}
+
+/* --- TEXTO BASE DEBAJO DE LA TARJETA --- */
+.card-info {
+    margin-top: 12px;
+}
+
+.card-title {
+    color: var(--primary-text-color);
+    font-size: 14px;
+    font-weight: 600;
+    margin: 0 0 2px 0;
+    /* Truco para cortar títulos muy largos con "..." */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.card-tags {
+    color: var(--secondary-text-color);
+    font-size: 12px;
+}
+
+@media (max-width: 768px) {
+    .catalog-section { padding: 15px 20px; }
+    .anime-card { flex: 0 0 150px; } /* Tarjetas más pequeñas en móvil */
+}
+
+.hero-image-placeholder {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 75%; 
+    height: 100%;
+    z-index: 1; 
+    overflow: hidden; /* Oculta cualquier desbordamiento */
+}
+
+/* Capas internas que harán el fundido cruzado */
+.hero-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-size: cover;
+    background-position: center right;
+    background-repeat: no-repeat;
+    
+    /* Mantenemos tu difuminado original intacto en ambas capas */
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, black 50%);
+    mask-image: linear-gradient(to right, transparent 0%, black 50%);
+    
+    /* Control de la animación suave de 0.6 segundos */
+    opacity: 0;
+    transition: opacity 0.6s ease-in-out;
+}
+
+/* La capa activa es la que se muestra visible */
+.hero-layer.active {
+    opacity: 1;
+}
+
+/* Contenedor principal relativo para posicionar el dropdown */
+.nav-search-container {
+    position: relative;
+    width: 190px; /* Más delgado para que entre mejor en el navbar */
+    max-width: 190px;
+}
+
+/* Estilo del Input (image_4f359d.jpg) */
+.search-input-wrapper {
+    display: flex;
+    align-items: center;
+    background-color: #15171f; /* Color oscuro del input */
+    border: 1px solid #2c2f42;
+    border-radius: 16px;
+    padding: 5px 10px;
+    transition: border-color 0.3s ease;
+    min-height: 34px;
+}
+
+.search-input-wrapper:focus-within {
+    border-color: #6060ee; /* Brillo al enfocar */
+}
+
+.search-input-wrapper input {
+    background: transparent;
+    border: none;
+    color: #fff;
+    width: 100%;
+    outline: none;
+    font-size: 13px;
+    line-height: 1.2;
+    padding: 0;
+}
+
+.search-input-wrapper i {
+    color: #7b88a1;
+    font-size: 13px;
+    margin-left: 6px;
+}
+
+/* Caja de resultados (image_4f32d6.png) */
+.nav-search-results {
+    position: absolute;
+    top: calc(100% + 10px);
+    left: 0;
+    width: 270px;
+    min-width: 220px;
+    background-color: #181920; /* Fondo oscuro azulado */
+    border: 1px solid #2d2e3e;
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+    padding: 12px;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.nav-search-results.hidden {
+    display: none;
+}
+
+/* Items individuales del resultado */
+.mini-result-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px;
+    border-radius: 8px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background-color 0.2s ease;
+}
+
+.mini-result-item:hover {
+    background-color: #242533; /* Color hover */
+}
+
+.mini-result-img {
+    width: 42px;
+    height: 60px; /* Proporción vertical tipo anime */
+    border-radius: 6px;
+    object-fit: cover; /* Recorta los bordes limpiamente sin deformar la imagen */
+    flex-shrink: 0; /* CLAVE: Impide que el flexbox aplaste o deforma la imagen */
+}
+
+.mini-result-info {
+    display: flex;
+    flex-direction: column;
+    min-width: 0; /* Permite que los títulos largos usen '...' en vez de empujar la imagen */
+}
+
+.mini-result-title {
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 600;
+    margin: 0 0 4px 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+}
+
+.mini-result-type {
+    color: #7b88a1; /* Gris azulado */
+    font-size: 12px;
+    margin: 0;
+}
+
+/* Botón de ver más */
+.see-more-btn {
+    background-color: #2c2d3e;
+    color: #92a4c0;
+    border: none;
+    border-radius: 8px;
+    padding: 10px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s, color 0.2s;
+    width: 100%;
+}
+
+.see-more-btn:hover {
+    background-color: #3b3c50;
+    color: #ffffff;
+}

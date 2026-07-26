@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mi Lista - AnimeKT</title>
+    <link rel="stylesheet" href="style2.css">
+    <link rel="stylesheet" href="styles.css">
+    
+</head>
+    <!-- BARRA DE NAVEGACIÓN SUPERIOR -->
+    <nav class="navbar">
+        <div class="nav-left">
+            <a href="/home.html" class="logo">AnimeKT</a>
+            <ul class="nav-links">
+                <li><a href="/buscador.html" class="active">Catálogo</a></li>
+                <li><a href="/Favoritos.html">Favoritos</a></li>
+            </ul>
+        </div>
+        
+        <div class="nav-right">
+            <!-- Mini Buscador en Navbar -->
+            <div class="nav-search-container" id="navSearchContainer">
+                <div class="search-input-wrapper">
+                    <input type="text" id="navSearchInput" placeholder="Buscar anime..." autocomplete="off">
+                    <i class="fas fa-search"></i>
+                </div>
+                <div id="navSearchResults" class="nav-search-results hidden">
+                    <div class="results-list" id="miniResultsList"></div>
+                    <button id="seeMoreBtn" class="see-more-btn">Ver más resultados</button>
+                </div>
+            </div>
+
+            <!-- Perfil y Ajustes -->
+            <div class="profile-menu" id="profile-menu">
+                <div class="profile-icon" id="profile-icon">
+                    <!-- Icono SVG de usuario -->
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="white">
+                        <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                    </svg>
+                </div>
+                <!-- Menú Desplegable -->
+                <div class="dropdown-content" id="dropdown-content">
+                    <a href="#">Ajustes de cuenta</a>
+                    <a href="#">Mi Lista</a>
+                    <hr style="border-color: #444; margin: 0;">
+                    <a href="#" id="btn-logout-nav" style="color: #ff5555;">Cerrar Sesión</a>
+                </div>
+            </div>
+            </div>
+        </div>
+    </nav>
+
+    <section class="favorites-section">
+        <div class="favorites-header">
+            <h1>Mi Lista de Favoritos</h1>
+            <span id="favorites-count" style="color: #999;">0 Guardados</span>
+        </div>
+
+        <!-- Aquí se inyectarán las tarjetas -->
+        <div class="favorites-grid" id="favorites-grid">
+            <div class="empty-state" id="empty-state" style="display: none;">
+                Aún no has agregado ningún anime a tu lista.
+            </div>
+        </div>
+    </section>
+
+    <script type="module" src="/Favoritos.js"></script>
+</body>
+</html>

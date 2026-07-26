@@ -1,0 +1,242 @@
+/* ================= HERO PLAYER SECTION ================= */
+
+.hero-player-section {
+    margin-top: 18px;
+    width: 100%;
+    min-height: calc(100vh - 18px); /* 👈 Esto fuerza a que cubra toda la altura de la pantalla */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background-color: #0d0e14;
+    padding-bottom: 40px;
+    padding-left: 0;
+    padding-right: 0;
+    box-sizing: border-box; /* 👈 Importante para que el padding no desborde el tamaño */
+}
+
+/* Contenedor del video 100% ancho de pantalla */
+.player-container {
+    width: 100%;
+    max-width: 100%;        /* 👈 CAMBIO CLAVE: Quitamos los 1680px para que abarque todo */
+    aspect-ratio: 32 / 9;   /* Mantiene la proporción cinematográfica perfecta */
+    background-color: #000000;
+    position: relative;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+}
+
+/* El elemento de video estirado de borde a borde */
+.video-element {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;      /* Opcional: Usa 'cover' si quieres que llene por completo sin barras negras en pantallas ultra-panorámicas, o 'contain' si prefieres ver el video entero sin recortes. */
+}
+
+/* ================= INFORMACIÓN INFERIOR (Mantiene un diseño ordenado) ================= */
+.video-info-container {
+    width: 100%;
+    max-width: 1680px;      /* Dejamos un límite aquí para que los títulos y botones no se peguen feo a los extremos de los monitores gigantes */
+    padding: 30px 40px;     /* Margen interno para que el texto respire */
+    box-sizing: border-box;
+    color: #ffffff;
+}
+
+.video-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 20px;
+    border-bottom: 1px solid #2b2b2b;
+    padding-bottom: 20px;
+}
+
+#video-title {
+    font-size: 2rem;
+    margin: 0 0 10px 0;
+    font-weight: 700;
+}
+
+.video-meta-text {
+    color: #a1a1aa;
+    font-size: 1rem;
+    margin: 0;
+}
+
+.hero-fav-btn {
+    background: transparent;
+    border: none;
+    color: #ffffff;
+    cursor: pointer;
+    transition: color 0.3s ease, transform 0.2s ease;
+}
+
+.hero-fav-btn:hover {
+    color: #a855f7; /* Tu color morado característico */
+    transform: scale(1.1);
+}
+
+/* ================= GRILLA DE EPISODIOS ================= */
+.episodes-section h3 {
+    font-size: 1.5rem;
+    margin-bottom: 15px;
+    color: #e2e8f0;
+}
+
+/* Hacemos las columnas más anchas para que quepan las imágenes */
+.episodes-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 20px;
+}
+
+/* ================= TARJETAS DE MINIATURAS ================= */
+.episode-card {
+    background: transparent;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    text-align: left;
+    transition: transform 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+}
+
+.episode-card:hover {
+    transform: translateY(-4px);
+}
+
+/* Contenedor de la imagen (Proporción 16:9) */
+.episode-thumbnail-wrapper {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    background-color: #1f2937; /* Fondo oscuro mientras carga */
+    border-radius: 6px;
+    overflow: hidden;
+    border: 2px solid transparent;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* La imagen descargada de Telegram */
+.episode-thumbnail-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: none; /* Se oculta hasta que cargue */
+}
+
+/* Etiqueta inferior izquierda (Ej: Episodio 1) */
+.episode-badge {
+    position: absolute;
+    bottom: 6px;
+    left: 6px;
+    background-color: rgba(31, 41, 55, 0.95);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: bold;
+}
+
+/* Título debajo de la miniatura */
+.episode-title {
+    color: #cbd5e1;
+    font-size: 0.9rem;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 100%;
+}
+
+/* ====== ESTADO ACTIVO (Cuando se está reproduciendo) ====== */
+.episode-card.active-episode .episode-thumbnail-wrapper {
+    border-color: #a855f7; /* Tu color morado */
+    box-shadow: 0 0 15px rgba(168, 85, 247, 0.4);
+}
+
+.episode-card.active-episode .episode-badge {
+    background-color: #a855f7;
+}
+
+.episode-card.active-episode .episode-title {
+    color: #a855f7;
+    font-weight: bold;
+}
+
+/* Esqueleto de carga para las miniaturas */
+.skeleton-thumbnail {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    border-radius: 6px;
+}
+
+/* ================= ESQUELETOS DE CARGA ================= */
+.skeleton-text {
+    background-color: #1f2937; /* Color base oscuro */
+    display: inline-block;
+}
+
+.skeleton-anim {
+    /* Gradiente que simula el brillo pasando de izquierda a derecha */
+    background: linear-gradient(90deg, #1f2937 25%, #374151 50%, #1f2937 75%);
+    background-size: 200% 100%;
+    animation: skeletonLoading 1.5s infinite linear;
+}
+
+/* Animación del movimiento del brillo */
+@keyframes skeletonLoading {
+    0% {
+        background-position: 200% 0;
+    }
+    100% {
+        background-position: -200% 0;
+    }
+}
+
+/* Esqueleto específico para los botones de episodios */
+.skeleton-btn {
+    height: 42px; /* Altura similar a tus botones .action-btn */
+    width: 100%;
+    border-radius: 8px; /* Mismo borde que tus botones */
+    border: 1px solid #2b2b2b; /* Borde sutil */
+}
+
+/* ================= SELECTOR DE TEMPORADAS ================= */
+.season-selector-container {
+    margin-bottom: 20px;
+}
+
+.season-dropdown {
+    background-color: transparent;
+    color: #ffffff;
+    font-size: 1.5rem;
+    font-weight: bold;
+    border: none;
+    cursor: pointer;
+    outline: none;
+    appearance: none; /* Quita el diseño por defecto del navegador */
+    -webkit-appearance: none;
+    padding-right: 30px;
+    
+    /* Dibuja un triángulo blanco SVG personalizado */
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3e%3cpath d='M7 10l5 5 5-5z'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right center;
+    background-size: 28px;
+    transition: color 0.3s ease;
+}
+
+.season-dropdown:hover {
+    color: #a855f7; /* Se pinta de morado al pasar el mouse */
+}
+
+/* Diseño de las opciones al abrir el menú */
+.season-dropdown option {
+    background-color: #1f2937;
+    color: white;
+    font-size: 1.1rem;
+    padding: 10px;
+}
+

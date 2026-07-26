@@ -1,0 +1,135 @@
+
+        /* ESTILOS EXCLUSIVOS ESTILO CRUNCHYROLL PARA LA PORTADA */
+        .cr-hero {
+            position: relative;
+            width: 100%;
+            height: 85vh; /* Puedes bajar esto a 75vh si sientes la imagen muy alta */
+            background-color: #141519;
+            
+            /* 'cover' llena toda la pantalla. Si quieres que se vea COMPLETA a lo ancho 
+               sin importar si sobra espacio abajo, cambia 'cover' por '100% auto' */
+            background-size: cover; 
+            
+            /* Obligamos a la imagen a pegarse arriba y centrarse */
+            background-position: center top; 
+            
+            display: flex;
+            align-items: flex-end;
+            
+            /* Aumentamos el padding superior para que el texto no choque con el navbar */
+            padding: 80px 5% 40px 5%; 
+            color: white;
+            
+            /* ELIMINAMOS EL MARGEN. Esto borra la franja negra superior. */
+            margin-top: 0; 
+        }
+        
+        .cr-overlay {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: linear-gradient(to right, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.4) 50%, rgba(0,0,0,0.1) 100%),
+                        linear-gradient(to top, #000000 0%, rgba(0,0,0,0) 40%);
+            z-index: 1;
+        }
+
+        .cr-content {
+            position: relative;
+            z-index: 2;
+            width: 100%;
+            /* Se eliminó el max-width y el margin para que no se centre ni se comprima */
+            display: flex;
+            flex-direction: column;
+            gap: 1px;
+        }
+
+        .cr-title {
+            font-size: 1.8rem; /* Antes era 3.5rem, ahora es más discreto */
+            font-weight: 900;
+            text-transform: uppercase;
+            margin: 0;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            max-width: 900px; /* Le damos un poco más de margen al texto del título */
+            line-height: 1.1;
+        }
+
+        .cr-meta-info {
+            font-size: 0.9rem;
+            color: #d1d5db;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .cr-age-rating {
+            background-color: rgba(255,255,255,0.2);
+            padding: 2px 6px;
+            border-radius: 2px;
+            font-weight: bold;
+        }
+
+        .cr-actions {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            margin-top: 15px;
+        }
+
+        .cr-btn-primary {
+            background: #a855f7; /* Naranja Crunchyroll */
+            color: white;
+            border: none;
+            padding: 12px 28px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: background 0.2s;
+            border-radius: 2px;
+        }
+        .cr-btn-primary:hover { background: #a855f7; }
+
+        .cr-btn-icon {
+            background: transparent;
+            border: 2px solid #a855f7;
+            color: #a855f7;
+            width: 44px; height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: 0.2s;
+            border-radius: 2px;
+        }
+        .cr-btn-icon:hover { background: rgba(244, 117, 33, 0.1); }
+
+        /* Cuadrícula inferior para Sinopsis y Datos Técnicos */
+        .cr-details-grid {
+            display: grid;
+            grid-template-columns: 2.5fr 1fr; /* Le da un poco más de espacio a la sinopsis (lado izquierdo) */
+            gap: 80px; /* Aumentamos la separación entre la sinopsis y los datos técnicos */
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .cr-synopsis {
+            font-size: 1rem;
+            line-height: 1.7;
+            color: #c8c8c8;
+        }
+
+        .cr-technical-data p {
+            margin: 0 0 10px 0;
+            font-size: 0.9rem;
+            color: #999;
+        }
+        .cr-technical-data span { color: #fff; }
+
+        /* Esqueletos de carga específicos */
+        .cr-skeleton-title { height: 60px; width: 60%; background: #2a2a2a; border-radius: 4px; margin-bottom: 10px; }
+        .cr-skeleton-meta { height: 20px; width: 40%; background: #2a2a2a; border-radius: 4px; }
+        .cr-skeleton-line { height: 16px; background: #2a2a2a; border-radius: 4px; margin-bottom: 12px; width: 100%; }
+        .cr-skeleton-line:last-child { width: 70%; }

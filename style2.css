@@ -1,0 +1,266 @@
+/* =========================================
+   DISEÑO PÁGINA DE BÚSQUEDA / CATÁLOGO (style2.css)
+   ========================================= */
+
+.search-page-section {
+    padding: 40px 4% 40px; /* 🔥 Cambiamos 100px por 60px para subir todo el contenido */
+    max-width: 1400px;
+    margin: 0 auto;
+    color: white;
+}
+
+.search-page-title {
+    font-size: 24px;
+    margin-bottom: 20px;
+    font-weight: bold;
+}
+
+/* Filtro Alfabético */
+.alphabet-filter {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 25px;
+}
+
+.alpha-btn {
+    background-color: #2a2a35; /* Gris oscuro */
+    color: #a0a0b0;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 14px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.alpha-btn:hover, .alpha-btn.active {
+    background-color: #3f3f50;
+    color: white;
+}
+
+/* Filtros Desplegables */
+.dropdown-filters {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 30px;
+    flex-wrap: wrap;
+}
+
+.custom-select select {
+    appearance: none;
+    background-color: #2a2a35;
+    color: #a0a0b0;
+    border: none;
+    padding: 12px 35px 12px 15px;
+    border-radius: 8px;
+    font-size: 14px;
+    outline: none;
+    cursor: pointer;
+    width: 200px;
+    /* Flecha personalizada */
+    background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23a0a0b0%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E');
+    background-repeat: no-repeat;
+    background-position: right 15px top 50%;
+    background-size: 10px auto;
+}
+
+.btn-filtrar {
+    background-color: #55ffb0; /* Verde agua */
+    color: #111;
+    border: none;
+    padding: 12px 30px;
+    border-radius: 8px;
+    font-weight: bold;
+    font-size: 14px;
+    cursor: pointer;
+    flex-grow: 1; /* Ocupa el espacio restante */
+    max-width: 200px;
+    transition: background 0.2s;
+}
+
+.btn-filtrar:hover {
+    background-color: #42e59a;
+}
+
+/* Información de Resultados */
+.results-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    font-size: 14px;
+    color: #a0a0b0;
+}
+
+.sort-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* AQUÍ APLICAMOS EL ESTILO IDÉNTICO AL DE LOS FILTROS */
+.sort-select {
+    appearance: none;
+    background-color: #2a2a35;
+    color: #a0a0b0;
+    border: none;
+    padding: 12px 35px 12px 15px;
+    border-radius: 8px;
+    font-size: 14px;
+    outline: none;
+    cursor: pointer;
+    min-width: 160px; /* Un tamaño base para que se vea bien */
+    /* Flecha personalizada idéntica */
+    background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23a0a0b0%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E');
+    background-repeat: no-repeat;
+    background-position: right 15px top 50%;
+    background-size: 10px auto;
+    transition: background-color 0.2s ease;
+}
+
+.sort-select:hover {
+    background-color: #3f3f50;
+}
+
+/* Grilla de Tarjetas (Basado en la imagen) */
+.search-results-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 20px;
+}
+
+.anime-card-v2 {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.anime-card-v2:hover {
+    transform: scale(1.03);
+}
+
+.card-img-container {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 2 / 3;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.card-img-container img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.anime-type-badge {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    background-color: rgba(60, 60, 90, 0.9); /* Fondo azul oscuro semitransparente */
+    color: #d0d0e0;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.anime-card-v2 h3 {
+    font-size: 15px;
+    font-weight: 600;
+    margin: 0;
+    color: white;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* =========================================
+   BUSCADOR GIGANTE (Catálogo)
+   ========================================= */
+.massive-search-container {
+    display: flex;
+    align-items: center;
+    background-color: #2a2a35; /* El mismo gris moderno de los botones */
+    border-radius: 12px;
+    padding: 8px 20px;
+    margin-bottom: 25px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+    border: 1px solid transparent;
+    transition: border-color 0.3s ease;
+}
+
+/* Brillo sutil cuando el usuario hace clic para escribir */
+.massive-search-container:focus-within {
+    border-color: #55ffb0; 
+}
+
+#massive-search-input {
+    flex-grow: 1; /* Hace que la barra de texto ocupe todo el espacio disponible */
+    background: transparent;
+    border: none;
+    color: #ffffff;
+    font-size: 18px;
+    padding: 12px 10px;
+    outline: none;
+}
+
+#massive-search-input::placeholder {
+    color: #a0a0b0;
+    font-weight: 500;
+}
+
+#massive-search-btn {
+    background: transparent;
+    border: none;
+    color: #a0a0b0;
+    cursor: pointer;
+    padding: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s ease, transform 0.2s ease;
+}
+
+#massive-search-btn:hover {
+    color: #55ffb0; /* La lupa se pinta de verde al pasar el mouse */
+    transform: scale(1.1);
+}
+
+/* =========================================
+   DISEÑO PÁGINA DE FAVORITOS (style2.css)
+   ========================================= */
+
+   .favorites-section {
+            padding: 40px 5% 40px 5%;
+            min-height: 80vh;
+        }
+        .favorites-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        .favorites-header h1 {
+            font-size: 2rem;
+            margin: 0;
+            color: #fff;
+        }
+        /* Reutilizamos la grilla del buscador */
+        .favorites-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px;
+        }
+        .empty-state {
+            text-align: center;
+            color: #7b88a1;
+            padding: 50px 0;
+            font-size: 1.2rem;
+        }
