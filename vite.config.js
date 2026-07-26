@@ -15,7 +15,11 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: resolve(__dirname, 'index.html'),
-        home: resolve(__dirname, 'home.html') // Agregamos la nueva página
+        home: resolve(__dirname, 'home.html'),
+        datos: resolve(__dirname, 'Datos.html'),
+        favoritos: resolve(__dirname, 'Favoritos.html'),
+        buscador: resolve(__dirname, 'buscador.html'),
+        ver: resolve(__dirname, 'Ver.html')
       }
     }
   }
