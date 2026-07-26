@@ -1,3 +1,4 @@
+import './reproductor.js';
 import { Buffer } from "buffer";
 import bigInt from "big-integer";
 import { Api, TelegramClient } from "telegram";

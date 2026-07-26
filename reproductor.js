@@ -1,8 +1,7 @@
 // ==========================================
 // LÓGICA DEL REPRODUCTOR PERSONALIZADO
 // ==========================================
-document.addEventListener("DOMContentLoaded", () => {
-    
+function iniciarReproductor() {
     // Capturamos los elementos de la UI
     const video = document.getElementById("main-video-player");
     const videoWrapper = document.getElementById("custom-video-wrapper");
@@ -376,4 +375,11 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         });
     }
-});
+} // Aquí cierra la función iniciarReproductor()
+
+// Esta validación asegura que el código corra siempre, sin importar qué tan rápido cargue Vercel
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', iniciarReproductor);
+} else {
+    iniciarReproductor();
+}
