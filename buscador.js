@@ -26,14 +26,9 @@ const btnLogoutNav = document.getElementById("btn-logout-nav");
 if(btnLogoutNav) {
     btnLogoutNav.addEventListener("click", (e) => {
         e.preventDefault();
-        
-        // Borras la sesión de Telegram
         localStorage.removeItem("telegram_session");
-        
-        // 👇 CORRECCIÓN: Ahora sí coinciden con los nombres de arriba
         localStorage.removeItem("user_api_id"); 
         localStorage.removeItem("user_api_hash"); 
-        
         window.location.href = "/";
     });
 }
@@ -87,13 +82,7 @@ async function cargarPerfilUsuario() {
 // ==========================================
 let todosLosAnimes = []; 
 let filtrosActuales = {
-    texto: "",
-    letra: "",
-    tipo: "",
-    genero: "",
-    año: "",
-    estado: "",
-    orden: "default"
+    texto: "", letra: "", tipo: "", genero: "", año: "", estado: "", orden: "default"
 };
 
 function normalizar(texto) {
@@ -129,14 +118,12 @@ function extraerDatosAnime(texto) {
     const dia = extraerRegex(/D[íi]a:\s*(.+)/i) || "";
     const tipo = extraerRegex(/Tipo:\s*(.+)/i) || "TV";
     
-    // Para Favoritos y Buscador (Mantiene la compatibilidad con tu código actual)
     const generosTexto = extraerRegex(/G[ée]neros:\s*(.+)/i) || "Desconocido";
     const generos = generosTexto !== "Desconocido" ? generosTexto.split(",").map(g => g.trim()).filter(Boolean) : [];
 
     const añoMatch = texto.match(/A[ñn]o\s*:\s*(\d{4})/i) || texto.match(/\b(19\d{2}|20\d{2})\b/);
     const año = añoMatch ? (añoMatch[1] || añoMatch[0]).trim() : "";
     
-    // Búsqueda flexible de Topics
     let topicsArray = [];
     const topicLineMatch = texto.match(/(?:📁|\b)\s*(?:Topic|Topics|Carpeta|ID)\s*[:=]?\s*([\d\s\|]+)/i);
     if (topicLineMatch) {
@@ -278,23 +265,63 @@ function aplicarFiltros() {
 }
 
 // ==========================================
-// 7. RENDERIZADO VISUAL DEL CATÁLOGO
+// 7. RENDERIZADO VISUAL CON SCROLL INFINITO
 // ==========================================
+let resultadosFiltradosGlobal = [];
+let currentSearchIndex = 0;
+const searchItemsPerLoad = 20; // Cuántas tarjetas cargan al bajar
+let searchObserver;
+
 const resultsGrid = document.getElementById("search-results-grid");
 const resultsCount = document.getElementById("results-count");
 
 function renderizarResultados(listaAnimes) {
     if(!resultsGrid) return;
+    
+    // Reseteamos todo para la nueva búsqueda
+    resultadosFiltradosGlobal = listaAnimes;
     resultsGrid.innerHTML = ''; 
+    currentSearchIndex = 0;
 
-    // 1. Leemos los favoritos actuales
+    if(resultsCount) resultsCount.textContent = `${listaAnimes.length} Resultados`;
+
+    // Cargamos el primer lote de resultados
+    cargarMasResultadosBuscador();
+
+    // Crear el centinela si no existe
+    let sentinel = document.getElementById('search-scroll-sentinel');
+    if (!sentinel) {
+        sentinel = document.createElement('div');
+        sentinel.id = 'search-scroll-sentinel';
+        sentinel.style.height = '1px';
+        resultsGrid.parentNode.appendChild(sentinel);
+    }
+
+    // Reiniciar el observador
+    if (searchObserver) searchObserver.disconnect();
+
+    searchObserver = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting) {
+            if (currentSearchIndex < resultadosFiltradosGlobal.length) {
+                cargarMasResultadosBuscador();
+            }
+        }
+    }, { rootMargin: '400px' });
+
+    searchObserver.observe(sentinel);
+}
+
+function cargarMasResultadosBuscador() {
+    if (!resultsGrid) return;
     let favoritosGuardados = JSON.parse(localStorage.getItem("mis_favoritos") || "[]");
+    
+    const limite = Math.min(currentSearchIndex + searchItemsPerLoad, resultadosFiltradosGlobal.length);
 
-    listaAnimes.forEach(anime => {
+    for (let i = currentSearchIndex; i < limite; i++) {
+        const anime = resultadosFiltradosGlobal[i];
         const datos = anime.datos;
         const idAnime = anime.mensaje.id.toString();
         
-        // 2. Verificamos estado
         const isFav = favoritosGuardados.includes(idAnime);
         const fillAtributo = isFav ? "currentColor" : "none";
         const colorStyle = isFav ? "color: #a855f7;" : "";
@@ -307,7 +334,6 @@ function renderizarResultados(listaAnimes) {
                     
                     <div class="card-hover-content">
                         <h4 class="hover-title">${datos.titulo}</h4>
-                        <!-- Nuevo título alternativo en hover -->
                         ${datos.titulosAlternativos ? `<p style="font-size: 0.75rem; color: #9ca3af; margin-top: -5px; margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${datos.titulosAlternativos}</p>` : ''}
                         
                         <div class="hover-meta">
@@ -315,10 +341,9 @@ function renderizarResultados(listaAnimes) {
                         </div>
                         <p class="hover-description">${datos.sinopsis}</p>
                         <div class="hover-actions">
-                            <button class="action-icon" title="Ver" onclick="event.stopPropagation();">
+                            <button class="action-icon" title="Ver" onclick="event.stopPropagation(); window.location.href='/Ver.html?id=${idAnime}';">
                                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
                             </button>
-                            <!-- 👇 Botón actualizado con el estado de Favorito y pasándole 'this' 👇 -->
                             <button class="action-icon" title="Añadir a lista" style="${colorStyle}" onclick="event.stopPropagation(); window.toggleFavorito('${idAnime}', this);">
                                 <svg viewBox="0 0 24 24" width="20" height="20" fill="${fillAtributo}" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>
                             </button>
@@ -328,22 +353,18 @@ function renderizarResultados(listaAnimes) {
                 
                 <div class="card-info">
                     <h3 class="card-title">${datos.titulo}</h3>
-                    <!-- Cortamos los títulos alternativos para mostrar máximo 2 extra (3 en total) -->
                     ${datos.titulosAlternativos ? `<span style="font-size: 0.75rem; color: #9ca3af; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${datos.titulosAlternativos.split(' - ').slice(0, 2).join(' - ')}</span>` : ''}
-                    
-                    <!-- Cambiamos "datos.meta" por "datos.audio" para que solo muestre el idioma -->
                     <span class="card-tags">• ${datos.audio}</span>
                 </div>
             </div>
         `;
         resultsGrid.insertAdjacentHTML('beforeend', cardHTML);
         cargarImagenBuscador(anime.mensaje);
-    });
-
-    if(resultsCount) resultsCount.textContent = `${listaAnimes.length} Resultados`;
+    }
+    
+    currentSearchIndex = limite;
 }
 
-// AÑADIDO: Ahora se inyecta como 'background-image' igual que en tu Home
 async function cargarImagenBuscador(msg) {
     const contenedorImagen = document.getElementById(`catalog-img-${msg.id}`);
     if (!contenedorImagen) return;
@@ -400,9 +421,10 @@ async function iniciarBuscador() {
         const nombreGrupo = "AnimeKT1"; 
         const topicId = 16;             
 
+        // 👇 AUMENTADO EL LÍMITE A 500
         const mensajes = await client.getMessages(nombreGrupo, {
             replyTo: parseInt(topicId),
-            limit: 100, 
+            limit: 500, 
         });
 
         let animesAgrupados = {};
@@ -473,29 +495,25 @@ function poblarFiltroAnios() {
 }
 
 // ==========================================
-// SISTEMA DE FAVORITOS (GUARDADO LOCAL CON CAMBIO VISUAL)
+// SISTEMA DE FAVORITOS
 // ==========================================
 window.toggleFavorito = function(id, btnElement) {
     let favoritos = JSON.parse(localStorage.getItem("mis_favoritos") || "[]");
     const idString = id.toString();
     const index = favoritos.indexOf(idString);
     
-    // Buscamos el ícono SVG dentro del botón que presionaste
     const svgIcon = btnElement.querySelector("svg");
 
     if (index > -1) {
-        // Si ya estaba, lo quitamos y lo volvemos transparente
         favoritos.splice(index, 1);
         if (svgIcon) svgIcon.setAttribute("fill", "none");
-        btnElement.style.color = ""; // Vuelve a su color normal
+        btnElement.style.color = ""; 
     } else {
-        // Si no estaba, lo guardamos y lo rellenamos de color morado
         favoritos.push(idString);
         if (svgIcon) svgIcon.setAttribute("fill", "currentColor");
-        btnElement.style.color = "#a855f7"; // AQUÍ ESTÁ LA CORRECCIÓN (Color morado)
+        btnElement.style.color = "#a855f7"; 
     }
     
-    // Guardamos la nueva lista en el navegador
     localStorage.setItem("mis_favoritos", JSON.stringify(favoritos));
 };
 

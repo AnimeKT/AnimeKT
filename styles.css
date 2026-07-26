@@ -639,14 +639,14 @@ h2.section-title {
 /* Textos dentro del Hover */
 .hover-title {
     color: white;
-    font-size: 14px;
+    font-size: 17px; /* Aumentado de 14px a 17px para que resalte más */
     font-weight: 700;
     margin: 0 0 6px 0;
 }
 
 .hover-stats, .hover-meta {
     color: var(--secondary-text-color);
-    font-size: 11px;
+    font-size: 13px; /* Aumentado de 11px a 13px */
     margin-bottom: 4px;
     display: flex;
     flex-direction: column;
@@ -655,11 +655,11 @@ h2.section-title {
 
 .hover-description {
     color: #cccccc;
-    font-size: 11px;
-    line-height: 1.4;
-    margin: 8px 0 auto 0; /* El "auto" empuja los botones al fondo */
+    font-size: 13px; /* Aumentado de 11px a 13px para mejorar la lectura */
+    line-height: 1.5; /* Le damos un respiro extra entre cada línea */
+    margin: 8px 0 auto 0; 
     display: -webkit-box;
-    -webkit-line-clamp: 6; /* Corta el texto si es muy largo */
+    -webkit-line-clamp: 6; /* Corta el texto a las 6 líneas para que no desborde */
     -webkit-box-orient: vertical;
     overflow: hidden;
 }
@@ -791,7 +791,7 @@ h2.section-title {
     position: absolute;
     top: calc(100% + 10px);
     left: 0;
-    width: 270px;
+    width: 240px;
     min-width: 220px;
     background-color: #181920; /* Fondo oscuro azulado */
     border: 1px solid #2d2e3e;

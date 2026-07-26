@@ -26,14 +26,9 @@ const btnLogoutNav = document.getElementById("btn-logout-nav");
 if(btnLogoutNav) {
     btnLogoutNav.addEventListener("click", (e) => {
         e.preventDefault();
-        
-        // Borras la sesión de Telegram
         localStorage.removeItem("telegram_session");
-        
-        // 👇 CORRECCIÓN: Ahora sí coinciden con los nombres de arriba
         localStorage.removeItem("user_api_id"); 
         localStorage.removeItem("user_api_hash"); 
-        
         window.location.href = "/";
     });
 }
@@ -52,14 +47,13 @@ document.addEventListener("click", () => {
     if (dropdownContent) dropdownContent.classList.remove("show");
 });
 
-// 👇 NUEVA LÓGICA DEL MINI BUSCADOR COPIADA DE HOME.JS 👇
 const navSearchInput = document.getElementById('navSearchInput');
 const navSearchResults = document.getElementById('navSearchResults');
 const miniResultsList = document.getElementById('miniResultsList');
 const seeMoreBtn = document.getElementById('seeMoreBtn');
 const navSearchContainer = document.getElementById('navSearchContainer');
 
-let catalogoParaBuscador = []; // Aquí guardaremos los animes en la memoria
+let catalogoParaBuscador = []; 
 
 if (navSearchInput) {
     let debounceTimer;
@@ -115,7 +109,6 @@ function renderizarMiniResultados(resultados, query) {
         resultados.forEach(anime => {
             const a = document.createElement('a');
             a.className = 'mini-result-item';
-            // Al hacer clic en el buscador, te lleva directo a los datos del anime
             a.href = `/Datos.html?id=${anime.mensaje.id}`; 
 
             const cachedImage = localStorage.getItem(`catalog_img_${anime.mensaje.id}`) || '';
@@ -183,14 +176,12 @@ function extraerDatosAnime(texto) {
     const dia = extraerRegex(/D[íi]a:\s*(.+)/i) || "";
     const tipo = extraerRegex(/Tipo:\s*(.+)/i) || "TV";
     
-    // Para Favoritos y Buscador (Mantiene la compatibilidad con tu código actual)
     const generosTexto = extraerRegex(/G[ée]neros:\s*(.+)/i) || "Desconocido";
     const generos = generosTexto !== "Desconocido" ? generosTexto.split(",").map(g => g.trim()).filter(Boolean) : [];
 
     const añoMatch = texto.match(/A[ñn]o\s*:\s*(\d{4})/i) || texto.match(/\b(19\d{2}|20\d{2})\b/);
     const año = añoMatch ? (añoMatch[1] || añoMatch[0]).trim() : "";
     
-    // Búsqueda flexible de Topics
     let topicsArray = [];
     const topicLineMatch = texto.match(/(?:📁|\b)\s*(?:Topic|Topics|Carpeta|ID)\s*[:=]?\s*([\d\s\|]+)/i);
     if (topicLineMatch) {
@@ -218,7 +209,6 @@ function extraerDatosAnime(texto) {
 // 4. CARGA DE DATOS EN LA PÁGINA
 // ==========================================
 async function iniciarPaginaDatos() {
-    // Obtenemos el ID del anime desde la URL (ej: Datos.html?id=12345)
     const urlParams = new URLSearchParams(window.location.search);
     const animeId = urlParams.get('id');
 
@@ -233,13 +223,13 @@ async function iniciarPaginaDatos() {
         console.log("✅ Conectado a Telegram. Buscando anime...");
         cargarPerfilUsuario();
 
-        // Extraemos mensajes de Telegram (lógica similar al buscador)
         const nombreGrupo = "AnimeKT1"; 
         const topicId = 16;             
 
+        // 👇 SOLUCIÓN 1: Aumentamos el límite a 500 para encontrar animes antiguos
         const mensajes = await client.getMessages(nombreGrupo, {
             replyTo: parseInt(topicId),
-            limit: 100, 
+            limit: 500, 
         });
 
         let animesAgrupados = {};
@@ -258,25 +248,21 @@ async function iniciarPaginaDatos() {
             }
         });
 
-        // Buscar el álbum que coincida con el ID y llenar el buscador
         let albumSeleccionado = null;
         
         Object.values(animesAgrupados).forEach(album => {
             album.sort((a, b) => a.id - b.id);
             
-            // Extraemos la información de TODOS los animes
             let textoCompleto = "";
             album.forEach(m => { if (m.message) textoCompleto += m.message + "\n"; });
             const datosExtraidos = extraerDatosAnime(textoCompleto.trim());
             
-            // Llenamos el catálogo oculto para que el mini-buscador funcione
             const fotoVertical = album[1] || album[0]; 
             catalogoParaBuscador.push({
                 mensaje: fotoVertical,
                 datos: datosExtraidos
             });
 
-            // Si este álbum es el que el usuario quiere ver en portada, lo guardamos
             if (album.some(m => m.id.toString() === animeId)) {
                 albumSeleccionado = album;
             }
@@ -287,22 +273,18 @@ async function iniciarPaginaDatos() {
             return;
         }
 
-        // Ordenamos y combinamos textos
         albumSeleccionado.sort((a, b) => a.id - b.id);
-        const fotoHorizontal = albumSeleccionado[0]; // Usaremos la horizontal para el Hero de Crunchyroll
+        const fotoHorizontal = albumSeleccionado[0]; 
         
         let textoCompleto = "";
         albumSeleccionado.forEach(m => { if (m.message) textoCompleto += m.message + "\n"; });
         
         const datos = extraerDatosAnime(textoCompleto.trim());
         
-        // Simulación de retraso extra para que se aprecien los esqueletos (Opcional, puedes quitar el setTimeout si quieres carga inmediata)
         setTimeout(() => renderizarUI(datos), 500); 
         
-        // Descargamos la imagen en alta calidad
         cargarFondoHero(fotoHorizontal);
 
-        // Activar botón de favoritos del Hero en la página de Datos
         const btnHeroFav = document.getElementById("btn-hero-fav");
         if (btnHeroFav) {
             let favoritos = JSON.parse(localStorage.getItem("mis_favoritos") || "[]");
@@ -311,18 +293,15 @@ async function iniciarPaginaDatos() {
 
             if (isFav) {
                 if (svgIcon) svgIcon.setAttribute("fill", "currentColor");
-                btnHeroFav.style.color = "#a855f7"; // Morado si ya está en favoritos
+                btnHeroFav.style.color = "#a855f7"; 
             }
 
-            // Le damos la función al hacer clic
             btnHeroFav.onclick = () => window.toggleFavorito(animeId, btnHeroFav);
         }
 
-        // 👇 NUEVO: CONECTAR EL BOTÓN DE REPRODUCIR 👇
         const btnComenzarVer = document.getElementById("btn-comenzar-ver");
         if (btnComenzarVer) {
             btnComenzarVer.onclick = () => {
-                // Lo mandamos a la página Ver y le pasamos el ID del anime en la URL
                 window.location.href = `/Ver.html?id=${animeId}`;
             };
         }
@@ -333,7 +312,6 @@ async function iniciarPaginaDatos() {
 }
 
 function renderizarUI(datos) {
-    // 1. Reemplazamos los esqueletos del Título y Meta
     const headerContainer = document.getElementById("datos-header");
     if (headerContainer) {
         headerContainer.innerHTML = `
@@ -346,7 +324,6 @@ function renderizarUI(datos) {
         `;
     }
 
-    // 2. Ocultamos el esqueleto de la sinopsis y mostramos el texto real
     const skeletonSynopsis = document.getElementById("synopsis-skeleton");
     const textSynopsis = document.getElementById("synopsis-text");
     if (skeletonSynopsis && textSynopsis) {
@@ -355,7 +332,6 @@ function renderizarUI(datos) {
         textSynopsis.innerHTML = `<p>${datos.sinopsis.replace(/\n/g, '<br>')}</p>`;
     }
 
-    // 3. Mostramos los datos técnicos
     const techData = document.getElementById("technical-data-container");
     if (techData) {
         document.getElementById("data-audio").textContent = datos.audio;
@@ -369,10 +345,17 @@ async function cargarFondoHero(msg) {
     const heroBackground = document.getElementById(`hero-background`);
     if (!heroBackground) return;
 
-    // Buscamos si la imagen horizontal ya estaba en caché (del Hero de tu Home)
+    // 👇 SOLUCIÓN 2: Inyectamos estilos CSS perfectos para que la imagen no se mutile
+    const aplicarEstilosFondo = (url) => {
+        heroBackground.style.backgroundImage = `url('${url}')`;
+        heroBackground.style.backgroundSize = 'cover';
+        heroBackground.style.backgroundPosition = 'center 15%'; // Enfoca un poco más arriba del centro (donde están los rostros)
+        heroBackground.style.backgroundRepeat = 'no-repeat';
+    };
+
     const cachedImage = localStorage.getItem(`hero_img_${msg.id}`);
     if (cachedImage) {
-        heroBackground.style.backgroundImage = `url('${cachedImage}')`;
+        aplicarEstilosFondo(cachedImage);
         return;
     }
 
@@ -403,7 +386,7 @@ async function cargarFondoHero(msg) {
                 const webpDataUrl = canvas.toDataURL('image/webp', 0.8);
                 try { localStorage.setItem(`hero_img_${msg.id}`, webpDataUrl); } catch(e){}
 
-                heroBackground.style.backgroundImage = `url('${webpDataUrl}')`;
+                aplicarEstilosFondo(webpDataUrl);
                 URL.revokeObjectURL(imageURL);
             };
         }
@@ -420,24 +403,19 @@ window.toggleFavorito = function(id, btnElement) {
     const idString = id.toString();
     const index = favoritos.indexOf(idString);
     
-    // Buscamos el ícono SVG dentro del botón que presionaste
     const svgIcon = btnElement.querySelector("svg");
 
     if (index > -1) {
-        // Si ya estaba, lo quitamos y lo volvemos transparente
         favoritos.splice(index, 1);
         if (svgIcon) svgIcon.setAttribute("fill", "none");
-        btnElement.style.color = ""; // Vuelve a su color normal
+        btnElement.style.color = ""; 
     } else {
-        // Si no estaba, lo guardamos y lo rellenamos de color morado
         favoritos.push(idString);
         if (svgIcon) svgIcon.setAttribute("fill", "currentColor");
-        btnElement.style.color = "#a855f7"; // AQUÍ ESTÁ LA CORRECCIÓN (Color morado)
+        btnElement.style.color = "#a855f7"; 
     }
     
-    // Guardamos la nueva lista en el navegador
     localStorage.setItem("mis_favoritos", JSON.stringify(favoritos));
 };
 
-// Iniciar
 iniciarPaginaDatos();

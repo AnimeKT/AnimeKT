@@ -354,7 +354,7 @@ async function cargarHero(nombreGrupo, topicId) {
     try {
         const mensajes = await client.getMessages(nombreGrupo, {
             replyTo: parseInt(topicId),
-            limit: 40, // Aumentamos el límite porque ahora cada anime ocupa 2 mensajes (horizontal y vertical)
+            limit: 300, // Aumentamos el límite porque ahora cada anime ocupa 2 mensajes (horizontal y vertical)
         });
 
         // 1. Agrupar los mensajes que forman parte de un mismo álbum (mismo groupedId)
@@ -455,6 +455,8 @@ async function cargarHero(nombreGrupo, topicId) {
             // Si el anime está Finalizado y no hay nada para el Hero, ocultamos la caja negra gigante
             const heroSection = document.querySelector('.hero-section');
             if (heroSection) heroSection.style.display = 'none';
+
+            
         }
 
         // El catálogo SIEMPRE se debe renderizar al final
@@ -725,22 +727,67 @@ async function precargarYGuardarPortadas() {
     console.log("✨ ¡Todas las portadas guardadas en la memoria local del navegador!");
 }
 
-// --- NUEVA FUNCIÓN: RENDERIZAR EL CATÁLOGO ---
+// ==========================================
+// SISTEMA DE SCROLL INFINITO (CARGA PROGRESIVA)
+// ==========================================
+let currentIndexToRender = 0;
+const itemsPerLoad = 14; // 👈 Cuántos animes quieres que carguen cada vez que bajas
+let scrollObserver; // Guardamos el observador globalmente
+
 function renderizarCatalogo() {
     const carouselTrack = document.querySelector('.carousel-track');
     if (!carouselTrack) return;
 
-    carouselTrack.innerHTML = ''; 
+    carouselTrack.innerHTML = ''; // Limpiar los esqueletos de carga
+    currentIndexToRender = 0; // Reiniciar el contador de animes mostrados
     
-    // 1. Leemos los favoritos actuales al cargar la página
-    let favoritosGuardados = JSON.parse(localStorage.getItem("mis_favoritos") || "[]");
+    // 1. Cargar el primer lote de animes (los primeros 20)
+    cargarMasAnimes();
 
-    for (let i = 0; i < catalogPhotos.length; i++) {
+    // 2. Crear un "centinela" (un detector invisible al final del catálogo)
+    let sentinel = document.getElementById('scroll-sentinel');
+    if (!sentinel) {
+        sentinel = document.createElement('div');
+        sentinel.id = 'scroll-sentinel';
+        sentinel.style.height = '1px'; // No ocupa espacio visual
+        // Lo agregamos justo debajo de las tarjetas
+        document.querySelector('.carousel-container').appendChild(sentinel);
+    }
+
+    // 3. Configurar el "Vigilante" (IntersectionObserver)
+    if (scrollObserver) scrollObserver.disconnect(); // Limpiar si había uno antes
+    
+    scrollObserver = new IntersectionObserver((entries) => {
+        // Si el usuario "choca" visualmente con el centinela invisible
+        if (entries[0].isIntersecting) {
+            // Y si aún quedan fotos en el catálogo por mostrar
+            if (currentIndexToRender < catalogPhotos.length) {
+                cargarMasAnimes();
+            }
+        }
+    }, { 
+        // Empezar a cargar 400px antes de que el usuario llegue abajo, para que no note la carga
+        rootMargin: '400px' 
+    }); 
+
+    scrollObserver.observe(sentinel);
+}
+
+// Función auxiliar que inyecta el HTML por lotes
+function cargarMasAnimes() {
+    const carouselTrack = document.querySelector('.carousel-track');
+    if (!carouselTrack) return;
+
+    let favoritosGuardados = JSON.parse(localStorage.getItem("mis_favoritos") || "[]");
+    
+    // Calculamos hasta qué número vamos a cargar en este lote
+    const limite = Math.min(currentIndexToRender + itemsPerLoad, catalogPhotos.length);
+
+    for (let i = currentIndexToRender; i < limite; i++) {
         const item = catalogPhotos[i];
         const msg = item.mensaje;
         const datos = item.datos;
 
-        // 2. Verificamos si este anime ya está en la lista para pintarlo desde el inicio
         const isFav = favoritosGuardados.includes(msg.id.toString());
         const fillAtributo = isFav ? "currentColor" : "none";
         const colorStyle = isFav ? "color: #a855f7;" : "";
@@ -752,7 +799,6 @@ function renderizarCatalogo() {
                     
                     <div class="card-hover-content">
                         <h4 class="hover-title">${datos.titulo}</h4>
-                        <!-- Nuevo título alternativo en hover -->
                         ${datos.titulosAlternativos ? `<p style="font-size: 0.75rem; color: #9ca3af; margin-top: -5px; margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${datos.titulosAlternativos}</p>` : ''}
                         
                         <div class="hover-meta">
@@ -760,12 +806,10 @@ function renderizarCatalogo() {
                         </div>
                         <p class="hover-description">${datos.sinopsis}</p>
                         <div class="hover-actions">
-                            <!-- 👇 AQUÍ AGREGAMOS LA REDIRECCIÓN A VER.HTML 👇 -->
                             <button class="action-icon" title="Ver" onclick="event.stopPropagation(); window.location.href='/Ver.html?id=${msg.id}';">
                                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
                             </button>
                             
-                            <!-- Botón de Favorito (Se queda igual) -->
                             <button class="action-icon" title="Añadir a lista" style="${colorStyle}" onclick="event.stopPropagation(); window.toggleFavorito('${msg.id}', this);">
                                 <svg viewBox="0 0 24 24" width="20" height="20" fill="${fillAtributo}" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>
                             </button>
@@ -775,18 +819,19 @@ function renderizarCatalogo() {
                 
                 <div class="card-info">
                     <h3 class="card-title">${datos.titulo}</h3>
-                    <!-- Cortamos los títulos alternativos para mostrar máximo 2 extra (3 en total) -->
                     ${datos.titulosAlternativos ? `<span style="font-size: 0.75rem; color: #9ca3af; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${datos.titulosAlternativos.split(' - ').slice(0, 2).join(' - ')}</span>` : ''}
                     
-                    <!-- Cambiamos "datos.meta" por "datos.audio" para que solo muestre el idioma -->
                     <span class="card-tags">• ${datos.audio}</span>
                 </div>
             </div>
         `;
         
         carouselTrack.insertAdjacentHTML('beforeend', cardHTML);
-        cargarImagenCatalogo(msg);
+        cargarImagenCatalogo(msg); // Descarga la imagen de este anime específico
     }
+
+    // Actualizamos el índice donde nos quedamos para el próximo lote
+    currentIndexToRender = limite;
 }
 
 // --- NUEVA FUNCIÓN: DESCARGAR IMAGEN VERTICAL (CON CACHÉ) ---

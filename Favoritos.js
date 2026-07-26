@@ -26,14 +26,9 @@ const btnLogoutNav = document.getElementById("btn-logout-nav");
 if(btnLogoutNav) {
     btnLogoutNav.addEventListener("click", (e) => {
         e.preventDefault();
-        
-        // Borras la sesión de Telegram
         localStorage.removeItem("telegram_session");
-        
-        // 👇 CORRECCIÓN: Ahora sí coinciden con los nombres de arriba
         localStorage.removeItem("user_api_id"); 
         localStorage.removeItem("user_api_hash"); 
-        
         window.location.href = "/";
     });
 }
@@ -106,14 +101,12 @@ function extraerDatosAnime(texto) {
     const dia = extraerRegex(/D[íi]a:\s*(.+)/i) || "";
     const tipo = extraerRegex(/Tipo:\s*(.+)/i) || "TV";
     
-    // Para Favoritos y Buscador (Mantiene la compatibilidad con tu código actual)
     const generosTexto = extraerRegex(/G[ée]neros:\s*(.+)/i) || "Desconocido";
     const generos = generosTexto !== "Desconocido" ? generosTexto.split(",").map(g => g.trim()).filter(Boolean) : [];
 
     const añoMatch = texto.match(/A[ñn]o\s*:\s*(\d{4})/i) || texto.match(/\b(19\d{2}|20\d{2})\b/);
     const año = añoMatch ? (añoMatch[1] || añoMatch[0]).trim() : "";
     
-    // Búsqueda flexible de Topics
     let topicsArray = [];
     const topicLineMatch = texto.match(/(?:📁|\b)\s*(?:Topic|Topics|Carpeta|ID)\s*[:=]?\s*([\d\s\|]+)/i);
     if (topicLineMatch) {
@@ -137,12 +130,19 @@ function extraerDatosAnime(texto) {
     };
 }
 
+// ==========================================
+// VARIABLES DE CONTROL PARA SCROLL INFINITO
+// ==========================================
+let listaFavoritosGlobal = [];
+let currentIndexToRender = 0;
+const itemsPerLoad = 20; // Carga de 20 en 20
+let scrollObserver;
+
 async function iniciarFavoritos() {
     try {
         await client.connect();
         cargarPerfilUsuario();
 
-        // Leemos la lista de favoritos del navegador
         let favoritosIDs = JSON.parse(localStorage.getItem("mis_favoritos") || "[]");
         const emptyState = document.getElementById("empty-state");
         const favoritesCount = document.getElementById("favorites-count");
@@ -153,7 +153,8 @@ async function iniciarFavoritos() {
             return;
         }
 
-        const mensajes = await client.getMessages("AnimeKT1", { replyTo: 16, limit: 100 });
+        // 👇 AUMENTADO EL LÍMITE A 500 PARA REVISAR HASTA 250 ANIMES
+        const mensajes = await client.getMessages("AnimeKT1", { replyTo: 16, limit: 500 });
         let animesAgrupados = {};
         
         mensajes.forEach(msg => {
@@ -170,37 +171,75 @@ async function iniciarFavoritos() {
             }
         });
 
-        let animesFavoritos = [];
+        listaFavoritosGlobal = [];
 
         Object.values(animesAgrupados).forEach(album => {
             album.sort((a, b) => a.id - b.id);
-            // Comprobamos si la ID de la foto horizontal o vertical está en la lista guardada
             const estaGuardado = album.some(m => favoritosIDs.includes(m.id.toString()));
             
             if (estaGuardado) {
                 let textoCompleto = "";
                 album.forEach(m => { if (m.message) textoCompleto += m.message + "\n"; });
                 
-                animesFavoritos.push({
-                    mensaje: album[1] || album[0], // Foto vertical
+                listaFavoritosGlobal.push({
+                    mensaje: album[1] || album[0], 
                     datos: extraerDatosAnime(textoCompleto.trim())
                 });
             }
         });
 
-        if (favoritesCount) favoritesCount.textContent = `${animesFavoritos.length} Guardados`;
-        renderizarFavoritos(animesFavoritos);
+        if (favoritesCount) favoritesCount.textContent = `${listaFavoritosGlobal.length} Guardados`;
+        
+        // Iniciar el renderizado progresivo
+        iniciarRenderizadoProgresivo();
 
     } catch (error) {
         console.error("Error cargando favoritos:", error);
     }
 }
 
-function renderizarFavoritos(lista) {
+// ==========================================
+// RENDERIZADO CON SCROLL INFINITO
+// ==========================================
+function iniciarRenderizadoProgresivo() {
     const grid = document.getElementById("favorites-grid");
     if (!grid) return;
 
-    lista.forEach(item => {
+    grid.innerHTML = '';
+    currentIndexToRender = 0;
+
+    cargarMasFavoritos();
+
+    // Crear Centinela para detectar el scroll
+    let sentinel = document.getElementById('scroll-sentinel');
+    if (!sentinel) {
+        sentinel = document.createElement('div');
+        sentinel.id = 'scroll-sentinel';
+        sentinel.style.height = '1px';
+        grid.parentNode.appendChild(sentinel);
+    }
+
+    if (scrollObserver) scrollObserver.disconnect();
+
+    scrollObserver = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting) {
+            if (currentIndexToRender < listaFavoritosGlobal.length) {
+                cargarMasFavoritos();
+            }
+        }
+    }, { rootMargin: '400px' });
+
+    scrollObserver.observe(sentinel);
+}
+
+function cargarMasFavoritos() {
+    const grid = document.getElementById("favorites-grid");
+    if (!grid) return;
+
+    const limite = Math.min(currentIndexToRender + itemsPerLoad, listaFavoritosGlobal.length);
+
+    for (let i = currentIndexToRender; i < limite; i++) {
+        const item = listaFavoritosGlobal[i];
         const msg = item.mensaje;
         const datos = item.datos;
 
@@ -212,20 +251,15 @@ function renderizarFavoritos(lista) {
                     
                     <div class="card-hover-content">
                         <h4 class="hover-title">${datos.titulo}</h4>
-                        <!-- Título alternativo en hover -->
                         ${datos.titulosAlternativos ? `<p style="font-size: 0.75rem; color: #9ca3af; margin-top: -5px; margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${datos.titulosAlternativos}</p>` : ''}
                         
                         <div class="hover-meta"><span>${datos.meta}</span></div>
-                        
-                        <!-- Sinopsis agregada -->
                         <p class="hover-description">${datos.sinopsis}</p>
                         
                         <div class="hover-actions">
-                            <!-- Botón de Ver (Igual que en el buscador) -->
                             <button class="action-icon" title="Ver" onclick="event.stopPropagation(); window.location.href='/Datos.html?id=${msg.id}'">
                                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
                             </button>
-                            <!-- Botón de Quitar de Favoritos (Específico de esta página) -->
                             <button class="action-icon" title="Quitar de lista" onclick="event.stopPropagation(); quitarFavoritoLocal('${msg.id}');" style="color: #a855f7;">
                                 <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>
                             </button>
@@ -235,29 +269,35 @@ function renderizarFavoritos(lista) {
                 
                 <div class="card-info">
                     <h3 class="card-title">${datos.titulo}</h3>
-                    <!-- Cortamos los títulos alternativos a 2 extra máximo -->
                     ${datos.titulosAlternativos ? `<span style="font-size: 0.75rem; color: #9ca3af; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${datos.titulosAlternativos.split(' - ').slice(0, 2).join(' - ')}</span>` : ''}
-                    
-                    <!-- Solo mostramos el idioma debajo de la tarjeta -->
                     <span class="card-tags">• ${datos.audio}</span>
                 </div>
             </div>
         `;
         grid.insertAdjacentHTML('beforeend', cardHTML);
         cargarImagenVertical(msg);
-    });
+    }
+
+    currentIndexToRender = limite;
 }
 
-// Función exclusiva de la vista para remover en tiempo real sin recargar todo
 window.quitarFavoritoLocal = function(id) {
     let favoritos = JSON.parse(localStorage.getItem("mis_favoritos") || "[]");
     favoritos = favoritos.filter(favId => favId !== id.toString());
     localStorage.setItem("mis_favoritos", JSON.stringify(favoritos));
     
-    // Recargar la vista sutilmente
-    const grid = document.getElementById("favorites-grid");
-    if(grid) grid.innerHTML = '';
-    iniciarFavoritos();
+    // Al quitar uno, refrescamos la lista filtrada
+    listaFavoritosGlobal = listaFavoritosGlobal.filter(item => item.mensaje.id.toString() !== id.toString());
+    
+    const favoritesCount = document.getElementById("favorites-count");
+    if (favoritesCount) favoritesCount.textContent = `${listaFavoritosGlobal.length} Guardados`;
+
+    if (listaFavoritosGlobal.length === 0) {
+        const emptyState = document.getElementById("empty-state");
+        if (emptyState) emptyState.style.display = "block";
+    }
+
+    iniciarRenderizadoProgresivo();
 };
 
 async function cargarImagenVertical(msg) {
