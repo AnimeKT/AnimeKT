@@ -6,6 +6,13 @@
     <title>Login - AnimeKT</title>
     <link rel="icon" type="image/x-icon" href="/favicon.png">
     <link rel="stylesheet" href="styles.css">
+    <script>
+        // Si ya hay sesión guardada, te manda al Home instantáneamente 
+        // usando .replace() para que el Login no se quede en el historial
+        if (localStorage.getItem("telegram_session")) {
+            window.location.replace("/home.html");
+        }
+    </script>
 </head>
 <body>
     <div id="login-section" class="login-card">
