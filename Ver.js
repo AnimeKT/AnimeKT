@@ -363,6 +363,9 @@ async function iniciarPaginaVer() {
         // Sincronizar el botón visual de reproductor.js
         document.dispatchEvent(new CustomEvent("syncIdioma", { detail: { lang: idiomaInicial } }));
         
+        // 🔥 FIX: Actualizamos la variable global para no buguear el botón en el futuro 🔥
+        currentIdiomaGlobal = idiomaInicial; 
+        
         // Llamar a nuestra nueva función
         llenarTemporadas(idiomaInicial);
 

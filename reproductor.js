@@ -178,12 +178,6 @@ function iniciarReproductor() {
         speedMenu.classList.toggle("active");
     });
 
-    document.addEventListener("click", (e) => {
-        if (!e.target.closest(".speed-container")) {
-            speedMenu.classList.remove("active");
-        }
-    });
-
     speedOptions.forEach(option => {
         option.addEventListener("click", () => {
             const speed = parseFloat(option.getAttribute("data-speed"));
@@ -236,6 +230,39 @@ function iniciarReproductor() {
             
             // 4. Cerrar el menú
             languageMenu.classList.remove("active");
+        });
+    });
+
+    // Acción al seleccionar un idioma
+    languageOptions.forEach(option => {
+        option.addEventListener("click", () => {
+            // 1. Quitar la clase "active" (color morado) de todas las opciones
+            languageOptions.forEach(opt => opt.classList.remove("active"));
+            
+            // 2. Poner la clase "active" solo a la opción clickeada
+            option.classList.add("active");
+            
+            // 3. Obtener qué idioma se seleccionó
+            const lang = option.getAttribute("data-lang");
+            console.log("Idioma seleccionado:", lang);
+            
+            // 🔥 AQUÍ ESTÁ LA MAGIA: Volvemos a activar la alerta global que Ver_4.js escucha
+            document.dispatchEvent(new CustomEvent("cambioIdioma", { detail: { lang: lang } }));
+            
+            // 4. Cerrar el menú
+            languageMenu.classList.remove("active");
+        });
+    });
+
+    // 👇 AQUÍ PEGAS EL CÓDIGO NUEVO (COMPLETO) 👇
+    document.addEventListener("syncIdioma", (e) => {
+        const langGuardado = e.detail.lang; 
+        
+        languageOptions.forEach(opt => {
+            opt.classList.remove("active");
+            if (opt.getAttribute("data-lang") === langGuardado) {
+                opt.classList.add("active");
+            }
         });
     });
 
