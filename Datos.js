@@ -274,16 +274,24 @@ async function iniciarPaginaDatos() {
         }
 
         albumSeleccionado.sort((a, b) => a.id - b.id);
-        const fotoHorizontal = albumSeleccionado[0]; 
-        
-        let textoCompleto = "";
-        albumSeleccionado.forEach(m => { if (m.message) textoCompleto += m.message + "\n"; });
-        
-        const datos = extraerDatosAnime(textoCompleto.trim());
-        
-        setTimeout(() => renderizarUI(datos), 500); 
-        
-        cargarFondoHero(fotoHorizontal);
+
+// 📱 Detectamos si el usuario está entrando desde un celular (ancho menor o igual a 768px)
+const esMobile = window.innerWidth <= 768;
+
+// Si es celular y hay segunda foto (vertical), usa esa. Si es PC, usa siempre la primera (horizontal).
+const fotoParaHero = (esMobile && albumSeleccionado.length > 1) 
+    ? albumSeleccionado[1] 
+    : albumSeleccionado[0];
+
+let textoCompleto = "";
+albumSeleccionado.forEach(m => { if (m.message) textoCompleto += m.message + "\n"; });
+
+const datos = extraerDatosAnime(textoCompleto.trim());
+
+setTimeout(() => renderizarUI(datos), 500); 
+
+// Cargará la vertical en celulares y la horizontal en computadoras
+cargarFondoHero(fotoParaHero);
 
         const btnHeroFav = document.getElementById("btn-hero-fav");
         if (btnHeroFav) {

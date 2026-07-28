@@ -25,7 +25,7 @@ function iniciarReproductor() {
     const spinner = document.createElement("div");
     spinner.id = "loading-spinner";
     
-    // 2. Inyectarlo dentro del contenedor del video[cite: 6]
+    // 2. Inyectarlo dentro del contenedor del video
     if (videoWrapper) {
         videoWrapper.appendChild(spinner);
     }
@@ -67,7 +67,8 @@ function iniciarReproductor() {
     }
 
     btnPlay.addEventListener("click", togglePlay);
-    video.addEventListener("click", togglePlay);
+    // REMOVEMOS el click de pausa en el video general para que no interfiera con los gestos táctiles móviles
+    // video.addEventListener("click", togglePlay);
 
     // ==========================================
     // 2. BARRA DE PROGRESO (Slider superior)
@@ -163,9 +164,6 @@ function iniciarReproductor() {
     // 2. Se la asignamos al botón de la esquina
     btnFullscreen.addEventListener("click", toggleFullScreen);
 
-    // 3. Se la asignamos al doble clic sobre el video
-    video.addEventListener("dblclick", toggleFullScreen);
-
     // ==========================================
     // 6. VELOCIDAD DE REPRODUCCIÓN
     // ==========================================
@@ -233,28 +231,6 @@ function iniciarReproductor() {
         });
     });
 
-    // Acción al seleccionar un idioma
-    languageOptions.forEach(option => {
-        option.addEventListener("click", () => {
-            // 1. Quitar la clase "active" (color morado) de todas las opciones
-            languageOptions.forEach(opt => opt.classList.remove("active"));
-            
-            // 2. Poner la clase "active" solo a la opción clickeada
-            option.classList.add("active");
-            
-            // 3. Obtener qué idioma se seleccionó
-            const lang = option.getAttribute("data-lang");
-            console.log("Idioma seleccionado:", lang);
-            
-            // 🔥 AQUÍ ESTÁ LA MAGIA: Volvemos a activar la alerta global que Ver_4.js escucha
-            document.dispatchEvent(new CustomEvent("cambioIdioma", { detail: { lang: lang } }));
-            
-            // 4. Cerrar el menú
-            languageMenu.classList.remove("active");
-        });
-    });
-
-    // 👇 AQUÍ PEGAS EL CÓDIGO NUEVO (COMPLETO) 👇
     document.addEventListener("syncIdioma", (e) => {
         const langGuardado = e.detail.lang; 
         
@@ -303,11 +279,7 @@ function iniciarReproductor() {
                 break;
             case "f":
             case "F":
-                if (!document.fullscreenElement) {
-                    videoWrapper.requestFullscreen().catch(err => console.error(err));
-                } else {
-                    document.exitFullscreen();
-                }
+                toggleFullScreen();
                 break;
         }
     });
@@ -318,93 +290,128 @@ function iniciarReproductor() {
     }
 
     // ==========================================
-    // 8. CONTROLES MÓVILES (Doble Tap)
+    // 8. CONTROLES TÁCTILES Y OCULTAMIENTO (MÓVIL Y PC)
     // ==========================================
     const esDispositivoMovil = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    let controlesTimeout;
+
+    // Función para mostrar controles y reiniciar temporizador
+    function mostrarControles() {
+        customControls.style.opacity = '1';
+        customControls.classList.add('active'); // Opcional, pero asegura consistencia
+        videoWrapper.style.cursor = 'default';
+        
+        clearTimeout(controlesTimeout);
+        
+        // Solo oculta si el video se está reproduciendo
+        if (!video.paused) {
+            controlesTimeout = setTimeout(() => {
+                customControls.style.opacity = '0';
+                customControls.classList.remove('active');
+                if (!esDispositivoMovil) {
+                    videoWrapper.style.cursor = 'none';
+                }
+            }, 3000); // Se ocultan después de 3 segundos
+        }
+    }
+
+    // Mostrar controles cuando el video se pausa
+    video.addEventListener('pause', () => {
+        mostrarControles();
+        clearTimeout(controlesTimeout); // Mantiene los controles visibles si está en pausa
+    });
+
+    // Ocultar controles al reanudar la reproducción
+    video.addEventListener('play', () => {
+        mostrarControles(); // Reinicia el contador de 3 segundos
+    });
+
     if (esDispositivoMovil) {
+        // En móviles ocultamos el slider de volumen
         const contenedorVolumen = document.querySelector(".volume-container");
         if (contenedorVolumen) contenedorVolumen.style.display = "none";
 
         let tiempoUltimoToque = 0;
-        
-        // Evitamos que los controles desaparezcan en móviles sin hacer tap
-        customControls.classList.add('active'); 
 
-        videoWrapper.addEventListener('touchstart', (e) => {
-            const esControl = e.target.closest('button, input, a') || 
-                              e.target.id.includes('slider') || 
-                              e.target.id.includes('btn') || 
-                              e.target.id.includes('progress');
-            if (esControl) return; 
+        // Gestor de toques en el área del video
+        videoWrapper.addEventListener('click', (e) => {
+            // Evitar interferencia si se tocó un botón o slider
+            const esControl = e.target.closest('button, input, a, .custom-controls');
+            if (esControl) return;
 
             const tiempoActual = new Date().getTime();
             const diferenciaTiempo = tiempoActual - tiempoUltimoToque;
 
+            // Detectar doble toque (menos de 300ms entre toques)
             if (diferenciaTiempo < 300 && diferenciaTiempo > 0) {
-                e.preventDefault(); 
-                const toqueX = e.changedTouches[0].clientX;
+                // Es un doble toque
+                const toqueX = e.clientX || e.changedTouches?.[0]?.clientX;
                 const anchoPantalla = window.innerWidth;
                 const tercio = anchoPantalla / 3;
 
                 if (toqueX < tercio) {
+                    // Doble toque izquierda: Retroceder 10s
                     video.currentTime = Math.max(0, video.currentTime - 10);
+                    mostrarControles();
                 } else if (toqueX > tercio * 2) {
+                    // Doble toque derecha: Adelantar 10s
                     video.currentTime = Math.min(video.duration || 0, video.currentTime + 10);
+                    mostrarControles();
                 } else {
-                    if (!document.fullscreenElement) {
-                        videoWrapper.requestFullscreen().catch(err => console.error(err));
-                    } else {
-                        document.exitFullscreen();
-                    }
+                    // Doble toque centro: Fullscreen (Opcional, lo cambiamos a nada si prefieres)
+                    toggleFullScreen();
                 }
+            } else {
+                // Es un toque simple
+                // Retrasamos un poco la acción del toque simple para dar tiempo a ver si es un doble toque
+                setTimeout(() => {
+                    const diferencia = new Date().getTime() - tiempoUltimoToque;
+                    if (diferencia > 250) { // Si no hubo segundo toque
+                        const toqueX = e.clientX || e.changedTouches?.[0]?.clientX;
+                        const anchoPantalla = window.innerWidth;
+                        const tercio = anchoPantalla / 3;
+
+                        // Si el toque fue en el medio, pausar/reproducir
+                        if (toqueX >= tercio && toqueX <= tercio * 2) {
+                             togglePlay();
+                        } else {
+                            // Si fue a los lados, solo mostrar/ocultar controles
+                            if (customControls.style.opacity === '1' || customControls.classList.contains('active')) {
+                                customControls.style.opacity = '0';
+                                customControls.classList.remove('active');
+                            } else {
+                                mostrarControles();
+                            }
+                        }
+                    }
+                }, 250);
             }
             tiempoUltimoToque = tiempoActual;
-        }, { passive: false });
-        
-        // Mostrar/Ocultar controles en móvil al hacer un solo tap (opcional, útil para móviles)
-        videoWrapper.addEventListener('click', (e) => {
-            const esControl = e.target.closest('button, input, a, .custom-controls');
-            if (!esControl) {
-                if (customControls.style.opacity === '0') {
-                    customControls.style.opacity = '1';
-                } else {
-                    customControls.style.opacity = '0';
-                }
-            }
         });
+
+        // Aseguramos que inicie ocultándose si reproduce
+        video.addEventListener('playing', () => {
+             mostrarControles();
+        });
+
     } else {
-        // En PC, que los controles desaparezcan si el mouse se queda quieto
-        let timeout;
-        
-        videoWrapper.addEventListener('mousemove', () => {
-            customControls.style.opacity = '1';
-            // 🔥 CAMBIO 1: Aplicamos el cursor normal SOLO al reproductor, no al body entero
-            videoWrapper.style.cursor = 'default'; 
-            clearTimeout(timeout);
-            
-            timeout = setTimeout(() => {
-                if (!video.paused) {
-                    customControls.style.opacity = '0';
-                    // 🔥 CAMBIO 2: Ocultamos el cursor SOLO dentro del reproductor
-                    videoWrapper.style.cursor = 'none'; 
-                }
-            }, 3000);
-        });
+        // Lógica PC original mejorada con la misma función de timeout
+        videoWrapper.addEventListener('mousemove', mostrarControles);
         
         videoWrapper.addEventListener('mouseleave', () => {
-            // 🔥 CAMBIO 3: Cancelamos la cuenta regresiva si el mouse sale del reproductor
-            clearTimeout(timeout); 
-            // 🔥 CAMBIO 4: Nos aseguramos de que el mouse sea visible siempre que salga
-            videoWrapper.style.cursor = 'default'; 
-            
+            clearTimeout(controlesTimeout);
+            videoWrapper.style.cursor = 'default';
             if (!video.paused) {
                 customControls.style.opacity = '0';
+                customControls.classList.remove('active');
             }
         });
+        
+        // En PC, un click en el video hace play/pause
+        video.addEventListener('click', togglePlay);
     }
-} // Aquí cierra la función iniciarReproductor()
+}
 
-// Esta validación asegura que el código corra siempre, sin importar qué tan rápido cargue Vercel
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', iniciarReproductor);
 } else {

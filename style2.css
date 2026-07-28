@@ -264,3 +264,90 @@
             padding: 50px 0;
             font-size: 1.2rem;
         }
+
+/* =========================================
+   ADAPTACIÓN EXCLUSIVA PARA MÓVILES (Agregar al final del archivo)
+   ========================================= */
+@media screen and (max-width: 768px) {
+    
+    /* Reducimos los márgenes generales de las secciones para ganar espacio */
+    .search-page-section, 
+    .favorites-section {
+        padding: 20px 4% 20px;
+    }
+
+    /* 1. Buscador gigante más pequeño */
+    .massive-search-container {
+        padding: 2px 12px;
+        margin-bottom: 15px;
+        border-radius: 8px;
+    }
+
+    #massive-search-input {
+        font-size: 14px;
+        padding: 4px 5px;
+        /* Las siguientes 4 líneas eliminan ese rectángulo fantasma */
+        background: transparent !important; 
+        border: none !important; 
+        outline: none !important;
+        box-shadow: none !important;
+    }
+
+    #massive-search-btn {
+        padding: 4px 8px;
+        background: transparent;
+        border: none;
+    }
+
+    /* 2. Filtros compactados en 2 filas y 2 columnas */
+    .dropdown-filters {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+        margin-bottom: 20px;
+    }
+    .custom-select select {
+        width: 100%; /* Ocupa el ancho de su columna */
+        padding: 10px 25px 10px 10px;
+        font-size: 12px;
+    }
+    .btn-filtrar {
+        grid-column: span 2; /* Hace que el botón abarque las 2 columnas abajo */
+        width: 100%;
+        max-width: 100%;
+        padding: 10px;
+    }
+
+    /* 3. Tarjetas en exactamente 3 columnas (Catálogo y Favoritos) */
+    .search-results-grid,
+    .favorites-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px; /* Reducimos la separación para que las 3 entren bien en el celular */
+    }
+
+    /* Ajustes extra para que el texto de las 3 tarjetas no se desborde en pantallas pequeñas */
+    .anime-card-v2 h3 {
+        font-size: 11px;
+    }
+    .anime-type-badge {
+        font-size: 10px;
+        padding: 3px 5px;
+    }
+    
+    /* Achicar botones del abecedario y del orden para mantener armonía */
+    .alpha-btn {
+        padding: 6px 10px;
+        font-size: 12px;
+    }
+    .sort-select {
+        min-width: 130px;
+        padding: 8px 30px 8px 10px;
+        font-size: 12px;
+    }
+    .results-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+}

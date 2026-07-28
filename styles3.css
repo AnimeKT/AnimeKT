@@ -133,3 +133,118 @@
         .cr-skeleton-meta { height: 20px; width: 40%; background: #2a2a2a; border-radius: 4px; }
         .cr-skeleton-line { height: 16px; background: #2a2a2a; border-radius: 4px; margin-bottom: 12px; width: 100%; }
         .cr-skeleton-line:last-child { width: 70%; }
+
+       /* =========================================
+   ADAPTACIÓN MÓVIL: LETRAS ABAJO Y PORTADA LIBRE
+   ========================================= */
+@media screen and (max-width: 768px) {
+    
+    /* 1. Bloquear desplazamiento horizontal */
+    html, body {
+        overflow-x: hidden !important; 
+    }
+    * {
+        box-sizing: border-box !important; 
+    }
+
+    /* 2. Hero con altura automática y fondo adaptado a lo ancho */
+    .cr-hero {
+        height: auto !important; /* Quitamos el 90vh fijo para que la sinopsis no comprima el espacio */
+        min-height: 100vh !important;
+        width: 100% !important; 
+        padding: 0 !important; /* Eliminamos el padding superior para usar el 100% del espacio */
+        background-position: center top !important; 
+        background-size: 100% auto !important; /* Muestra el póster de lado a lado en la parte superior */
+        background-repeat: no-repeat !important;
+        background-color: #141519 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: flex-start !important; 
+    }
+
+    /* 3. Degradado inteligente basado en la altura de la pantalla (vh) en lugar de porcentajes */
+    .cr-overlay {
+        /* Dejamos transparente el 40% superior (donde van las caras) y oscurecemos progresivamente hacia abajo */
+        background: linear-gradient(to bottom, 
+            rgba(20, 21, 25, 0) 0%, 
+            rgba(20, 21, 25, 0) 40vh, 
+            rgba(20, 21, 25, 0.95) 55vh, 
+            #141519 100%
+        ) !important;
+    }
+
+    /* 4. Forzamos a que todo el texto y botones bajen con un margen estricto */
+    .cr-content {
+        margin-top: 55vh !important; /* LA CLAVE: Obliga a que el contenido empiece en la mitad inferior de la pantalla */
+        align-items: center !important;
+        text-align: center !important;
+        width: 100% !important;
+        background: transparent !important; 
+        padding: 0 15px 30px 15px !important; 
+        z-index: 3 !important;
+        display: flex !important;
+        flex-direction: column !important;
+    }
+
+    .cr-title {
+        font-size: 1.6rem !important;
+        width: 100% !important;
+        margin-bottom: 6px !important;
+        word-wrap: break-word !important; 
+        text-shadow: 2px 2px 6px rgba(0,0,0,0.8) !important; /* Mejora la lectura sobre imágenes claras */
+    }
+
+    .cr-meta-info {
+        white-space: normal !important; 
+        font-size: 0.8rem !important;
+        margin-bottom: 15px !important;
+        justify-content: center !important;
+    }
+
+    /* 5. Orden de los botones en cuadrícula responsiva */
+    .cr-content > div[style*="display: flex"], 
+    .cr-content > div:has(.cr-btn-primary),
+    .cr-actions {
+        width: 100% !important;
+        display: flex !important;
+        flex-wrap: wrap !important; 
+        justify-content: center !important;
+        gap: 10px !important; 
+        margin-top: 5px !important;
+    }
+
+    .cr-btn-primary {
+        flex: 1 1 100% !important; /* Botón principal ocupa toda la fila */
+        width: 100% !important;
+        justify-content: center !important;
+        padding: 13px !important;
+        margin: 0 !important;
+        font-size: 1rem !important;
+    }
+
+    .cr-btn-icon {
+        width: 48px !important; 
+        height: 48px !important;
+        margin: 0 !important;
+    }
+
+    /* 6. Reestructuración de la sinopsis para que baje fluidamente */
+    .cr-details-grid {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 20px !important;
+        text-align: left !important;
+        margin-top: 25px !important;
+        padding-top: 20px !important;
+        width: 100% !important;
+        background: transparent !important; 
+        border-top: 1px solid rgba(255,255,255,0.1) !important;
+    }
+
+    .cr-synopsis {
+        font-size: 0.95rem !important;
+        word-wrap: break-word !important;
+        line-height: 1.6 !important;
+        color: #d1d5db !important;
+    }
+}

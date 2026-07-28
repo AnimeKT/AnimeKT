@@ -256,3 +256,100 @@
     0% { transform: translate(-50%, -50%) rotate(0deg); }
     100% { transform: translate(-50%, -50%) rotate(360deg); }
 }
+
+/* =========================================
+   ADAPTACIÓN MÓVIL: ESTILO YOUTUBE (3 COLUMNAS)
+   ========================================= */
+@media screen and (max-width: 768px) {
+    
+    /* 1. Reproductor de Video (Proporción 16:9 y apegado arriba) */
+    .hero-player-section {
+        margin-top: 0 !important;
+        min-height: auto !important;
+        padding-bottom: 20px !important;
+    }
+
+    .video-wrapper, .player-container {
+        aspect-ratio: 16 / 9 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        border-radius: 0 !important;
+    }
+
+    /* 2. Información del video */
+    .video-info-container {
+        padding: 15px 15px !important;
+    }
+
+    .video-header {
+        margin-bottom: 10px !important;
+        padding-bottom: 15px !important;
+        flex-direction: column !important;
+    }
+
+    #video-title {
+        font-size: 1.3rem !important;
+        margin-bottom: 4px !important;
+        font-weight: bold !important;
+    }
+
+    .video-meta-text {
+        font-size: 0.95rem !important;
+        color: #a1a1aa !important;
+    }
+
+    /* 3. Selector de Temporadas */
+    .season-selector-container {
+        margin-bottom: 15px !important;
+    }
+    
+    .season-dropdown {
+        font-size: 1.1rem !important;
+        background-size: 20px !important;
+    }
+
+    /* 4. Lista de Capítulos en Cuadrícula de 3 Columnas */
+    .episodes-grid {
+        display: grid !important;
+        grid-template-columns: repeat(3, 1fr) !important; /* Fuerza exactamente 3 columnas */
+        gap: 10px !important; /* Espacio compacto entre miniaturas */
+        width: 100% !important;
+    }
+
+    /* 5. Tarjeta de Episodio optimizada para 3 columnas */
+    .episode-card {
+        display: flex !important;
+        flex-direction: column !important; /* Imagen arriba, texto pequeño abajo */
+        align-items: stretch !important;
+        gap: 5px !important;
+        width: 100% !important;
+    }
+
+    /* Contenedor de la foto del episodio */
+    .episode-thumbnail-wrapper {
+        width: 100% !important;
+        min-width: unset !important;
+        aspect-ratio: 16 / 9 !important;
+        border-radius: 6px !important;
+        border: none !important;
+    }
+
+    /* Etiqueta flotante (Ej: Episodio 1) */
+    .episode-badge {
+        font-size: 0.65rem !important;
+        padding: 2px 4px !important;
+        bottom: 4px !important;
+        left: 4px !important;
+    }
+
+    /* Título compacto debajo de la miniatura */
+    .episode-title {
+        font-size: 0.8rem !important;
+        color: #cbd5e1 !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        width: 100% !important;
+        text-align: center !important;
+    }
+}

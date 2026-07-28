@@ -404,19 +404,26 @@ async function cargarHero(nombreGrupo, topicId) {
             album.forEach(m => { if (m.message) textoCompleto += m.message + "\n"; });
             
             const datosAnime = extraerDatosAnime(textoCompleto.trim());
+            
+            // 👇 CAMBIO 1: Le asignamos el texto también a la foto vertical para no perder el título
+            if (fotoVertical) {
+                fotoVertical.textoCombinado = textoCompleto.trim();
+            }
             fotoHorizontal.textoCombinado = textoCompleto.trim();
             
             // LÓGICA DEL HERO (Filtro por Emisión y Día)
-            // Normalizamos textos quitando tildes para evitar errores (ej. "Miércoles" vs "Miercoles")
             const estadoNormalizado = datosAnime.estado.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
             const diaNormalizado = datosAnime.dia.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
             
             if (estadoNormalizado.includes("emision")) {
-                animesEnEmision.push(fotoHorizontal); // Guardamos todos los que estén en emisión
+                // Detectamos si está en celular (< 768px) para elegir la vertical, sino la horizontal
+                const esCelular = window.innerWidth <= 768;
+                const fotoParaHero = esCelular ? (fotoVertical || fotoHorizontal) : fotoHorizontal;
                 
-                // Si además coincide con el día de hoy, va directo al Hero principal
+                animesEnEmision.push(fotoParaHero); 
+                
                 if (diaNormalizado.includes(diaHoy)) {
-                    heroPhotos.push(fotoHorizontal);
+                    heroPhotos.push(fotoParaHero);
                 }
             }
 
@@ -728,11 +735,10 @@ async function precargarYGuardarPortadas() {
 }
 
 // ==========================================
-// SISTEMA DE SCROLL INFINITO (CARGA PROGRESIVA)
+// SISTEMA DE CARGA POR BOTÓN "VER MÁS"
 // ==========================================
 let currentIndexToRender = 0;
-const itemsPerLoad = 14; // 👈 Cuántos animes quieres que carguen cada vez que bajas
-let scrollObserver; // Guardamos el observador globalmente
+const itemsPerLoad = 14; // 👈 Cuántos animes quieres que carguen cada vez al hacer clic
 
 function renderizarCatalogo() {
     const carouselTrack = document.querySelector('.carousel-track');
@@ -741,36 +747,30 @@ function renderizarCatalogo() {
     carouselTrack.innerHTML = ''; // Limpiar los esqueletos de carga
     currentIndexToRender = 0; // Reiniciar el contador de animes mostrados
     
-    // 1. Cargar el primer lote de animes (los primeros 20)
+    // 1. Cargar el primer lote de animes
     cargarMasAnimes();
 
-    // 2. Crear un "centinela" (un detector invisible al final del catálogo)
-    let sentinel = document.getElementById('scroll-sentinel');
-    if (!sentinel) {
-        sentinel = document.createElement('div');
-        sentinel.id = 'scroll-sentinel';
-        sentinel.style.height = '1px'; // No ocupa espacio visual
-        // Lo agregamos justo debajo de las tarjetas
-        document.querySelector('.carousel-container').appendChild(sentinel);
-    }
-
-    // 3. Configurar el "Vigilante" (IntersectionObserver)
-    if (scrollObserver) scrollObserver.disconnect(); // Limpiar si había uno antes
-    
-    scrollObserver = new IntersectionObserver((entries) => {
-        // Si el usuario "choca" visualmente con el centinela invisible
-        if (entries[0].isIntersecting) {
-            // Y si aún quedan fotos en el catálogo por mostrar
+    // 2. Configurar el botón "Ver más"
+    const btnVerMas = document.getElementById('btn-ver-mas');
+    if (btnVerMas) {
+        // Removemos eventos anteriores clonando el botón (buena práctica para evitar doble carga)
+        const nuevoBtn = btnVerMas.cloneNode(true);
+        btnVerMas.parentNode.replaceChild(nuevoBtn, btnVerMas);
+        
+        nuevoBtn.addEventListener('click', () => {
             if (currentIndexToRender < catalogPhotos.length) {
-                cargarMasAnimes();
+                const textoOriginal = nuevoBtn.textContent;
+                nuevoBtn.textContent = "Cargando..."; // Efecto visual
+                nuevoBtn.style.opacity = "0.7";
+                
+                setTimeout(() => {
+                    cargarMasAnimes();
+                    nuevoBtn.textContent = textoOriginal;
+                    nuevoBtn.style.opacity = "1";
+                }, 300); // Un pequeño retraso para que se vea natural
             }
-        }
-    }, { 
-        // Empezar a cargar 400px antes de que el usuario llegue abajo, para que no note la carga
-        rootMargin: '400px' 
-    }); 
-
-    scrollObserver.observe(sentinel);
+        });
+    }
 }
 
 // Función auxiliar que inyecta el HTML por lotes
@@ -832,6 +832,16 @@ function cargarMasAnimes() {
 
     // Actualizamos el índice donde nos quedamos para el próximo lote
     currentIndexToRender = limite;
+    
+    // 👇 Control de visibilidad del botón "Ver más"
+    const btnVerMas = document.getElementById('btn-ver-mas');
+    if (btnVerMas) {
+        if (currentIndexToRender >= catalogPhotos.length) {
+            btnVerMas.style.display = 'none'; // Ya no hay más, lo escondemos
+        } else {
+            btnVerMas.style.display = 'inline-block'; // Aún hay, lo mostramos
+        }
+    }
 }
 
 // --- NUEVA FUNCIÓN: DESCARGAR IMAGEN VERTICAL (CON CACHÉ) ---
