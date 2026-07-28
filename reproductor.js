@@ -318,6 +318,14 @@ function iniciarReproductor() {
     let controlesTimeout;
 
     function ocultarControles() {
+        // 🛑 MAGIA: Si el menú de idiomas o velocidad está abierto, NO ocultar nada
+        const languageMenu = document.getElementById("language-menu");
+        const speedMenu = document.getElementById("speed-menu");
+        if ((languageMenu && languageMenu.classList.contains('active')) || 
+            (speedMenu && speedMenu.classList.contains('active'))) {
+            return; 
+        }
+
         customControls.style.opacity = '0';
         customControls.classList.remove('active');
         if (centerControls) centerControls.classList.remove('active');
