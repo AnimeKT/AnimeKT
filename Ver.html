@@ -62,6 +62,23 @@
             <video id="main-video-player" class="video-element" poster="https://via.placeholder.com/1920x1080/14151a/ffffff?text=Cargando+Episodio...">
                 <source src="" type="video/mp4">
             </video>
+
+            <!-- Controles flotantes en el centro de la pantalla (Play/Pause, Prev, Next) -->
+            <div class="center-controls-overlay" id="center-controls">
+                <button class="center-btn" id="btn-prev-video">
+                    <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+                </button>
+                <button class="center-btn play-pause-btn" id="btn-center-play">
+                    <!-- Ícono por defecto (pausado, por lo que muestra botón de play) -->
+                    <svg viewBox="0 0 24 24" class="icon-play"><path d="M8 5v14l11-7z"/></svg>
+                    <!-- Ícono de pausa (oculto por defecto) -->
+                    <svg viewBox="0 0 24 24" class="icon-pause" style="display: none;"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                </button>
+                <button class="center-btn" id="btn-next-video">
+                    <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+                </button>
+            </div>
+
             
             <!-- Nuevos Controles Flotantes -->
             <div class="custom-controls" id="custom-controls">

@@ -264,10 +264,18 @@
     
     /* 1. Reproductor de Video (Proporción 16:9 y apegado arriba) */
     .hero-player-section {
-        margin-top: 0 !important;
-        min-height: auto !important;
-        padding-bottom: 20px !important;
-    }
+    margin-top: 16px; /* 👈 CAMBIO CLAVE: Bájalo para que el navbar no lo tape */
+    width: 100%;
+    min-height: calc(100vh - 75px); /* 👈 Ajústalo igual que el margin-top */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background-color: #0d0e14;
+    padding-bottom: 40px;
+    padding-left: 0;
+    padding-right: 0;
+    box-sizing: border-box; 
+}
 
     .video-wrapper, .player-container {
         aspect-ratio: 16 / 9 !important;
@@ -351,5 +359,136 @@
         text-overflow: ellipsis !important;
         width: 100% !important;
         text-align: center !important;
+    }
+}
+
+/* ================= CONTROLES CENTRALES (YouTube Style) ================= */
+.center-controls-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: none; /* 👈 CAMBIADO: Oculto por defecto en PC */
+    gap: 25px; 
+    z-index: 15;
+    opacity: 0;
+    pointer-events: none; 
+    transition: opacity 0.3s ease;
+    background: transparent;
+    padding: 0;
+}
+
+.center-controls-overlay.active {
+    opacity: 1;
+    pointer-events: auto; /* Permitir clics cuando está visible */
+}
+
+.center-btn {
+    background: rgba(0, 0, 0, 0.5);
+    border: none;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s, transform 0.1s;
+}
+
+.center-btn:hover {
+    background: rgba(168, 85, 247, 0.8); /* Tu color primary */
+}
+
+.center-btn:active {
+    transform: scale(0.9);
+}
+
+.center-btn svg {
+    width: 28px;
+    height: 28px;
+    fill: currentColor;
+}
+
+.play-pause-btn {
+    width: 65px;
+    height: 65px;
+}
+
+.play-pause-btn svg {
+    width: 36px;
+    height: 36px;
+}
+
+/* En móviles hacemos los botones un poco más pequeños */
+@media screen and (max-width: 768px) {
+    .center-controls-overlay {
+        display: flex !important; /* 👈 NUEVO: Solo se muestran en celulares */
+        gap: 15px !important;
+    }
+    
+    .center-btn {
+        width: 45px;
+        height: 45px;
+    }
+    
+    .play-pause-btn {
+        width: 55px;
+        height: 55px;
+    }
+}
+
+/* =========================================
+   REDUCCIÓN EXTREMA PARA MÓVILES (Minimalista)
+   ========================================= */
+@media screen and (max-width: 768px) {
+    /* 1. Reducir la mancha negra difuminada de abajo */
+    .custom-controls {
+        padding-top: 15px !important;
+    }
+    
+    /* 2. Reducir espacios de la barra inferior */
+    .controls-main {
+        padding: 0px 15px 10px 15px !important;
+        gap: 12px !important;
+    }
+    
+    /* 3. Achicar iconos inferiores (Play, Vol, Fullscreen) */
+    .control-btn svg {
+        width: 18px !important;
+        height: 18px !important;
+    }
+    
+    /* 4. Achicar texto del tiempo y velocidad */
+    .time-display, .text-btn {
+        font-size: 11px !important;
+    }
+    
+    /* 5. Achicar los 3 botones centrales y unirlos más */
+    .center-controls-overlay {
+        gap: 15px !important;
+    }
+    
+    .center-btn {
+        width: 38px !important;
+        height: 38px !important;
+        background: rgba(0, 0, 0, 0.4) !important; /* Círculo sutil individual */
+    }
+    
+    .center-btn svg {
+        width: 18px !important;
+        height: 18px !important;
+    }
+    
+    /* El botón del medio de Play/Pause un poquito más grande que los lados */
+    .play-pause-btn {
+        width: 48px !important;
+        height: 48px !important;
+    }
+    
+    .play-pause-btn svg {
+        width: 24px !important;
+        height: 24px !important;
     }
 }

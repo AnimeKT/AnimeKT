@@ -793,3 +793,29 @@ document.addEventListener("cambioIdioma", (e) => {
 
 // Iniciar la página
 iniciarPaginaVer();
+
+// ==========================================
+// NUEVO: CONTROLES DE SIGUIENTE / ANTERIOR CAPÍTULO
+// ==========================================
+document.addEventListener("siguienteCapitulo", () => {
+    // Busca todas las tarjetas de episodios en pantalla
+    const cards = document.querySelectorAll('.episodes-grid .episode-card');
+    
+    // Si hay un capítulo después del actual, hazle clic virtualmente
+    if (currentEpisodeIndexGlobal + 1 < cards.length) {
+        cards[currentEpisodeIndexGlobal + 1].click();
+    } else {
+        console.log("No hay más capítulos hacia adelante");
+    }
+});
+
+document.addEventListener("anteriorCapitulo", () => {
+    const cards = document.querySelectorAll('.episodes-grid .episode-card');
+    
+    // Si no estamos en el primer capítulo, retrocede uno
+    if (currentEpisodeIndexGlobal > 0) {
+        cards[currentEpisodeIndexGlobal - 1].click();
+    } else {
+        console.log("Estás en el primer capítulo");
+    }
+});
