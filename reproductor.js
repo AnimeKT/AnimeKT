@@ -232,6 +232,7 @@ function iniciarReproductor() {
         e.stopPropagation();
         languageMenu.classList.toggle("active");
         speedMenu.classList.remove("active"); 
+        mostrarControles(); // 👈 Esto mantiene los controles despiertos mientras eliges
     });
 
     document.addEventListener("click", (e) => {
