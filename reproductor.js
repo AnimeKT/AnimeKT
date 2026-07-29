@@ -86,20 +86,6 @@ function iniciarReproductor() {
     }
 
     btnPlay.addEventListener("click", togglePlay);
-
-    if (btnNextVideo) {
-        btnNextVideo.addEventListener("click", (e) => {
-            e.stopPropagation();
-            document.dispatchEvent(new CustomEvent("siguienteCapitulo")); 
-        });
-    }
-    
-    if (btnPrevVideo) {
-        btnPrevVideo.addEventListener("click", (e) => {
-            e.stopPropagation();
-            document.dispatchEvent(new CustomEvent("anteriorCapitulo")); 
-        });
-    }
     // REMOVIDO: video.addEventListener("click", togglePlay); -> Se maneja en la sección táctil.
 
     // ==========================================
@@ -232,7 +218,6 @@ function iniciarReproductor() {
         e.stopPropagation();
         languageMenu.classList.toggle("active");
         speedMenu.classList.remove("active"); 
-        mostrarControles(); // 👈 Esto mantiene los controles despiertos mientras eliges
     });
 
     document.addEventListener("click", (e) => {
@@ -319,14 +304,6 @@ function iniciarReproductor() {
     let controlesTimeout;
 
     function ocultarControles() {
-        // 🛑 MAGIA: Si el menú de idiomas o velocidad está abierto, NO ocultar nada
-        const languageMenu = document.getElementById("language-menu");
-        const speedMenu = document.getElementById("speed-menu");
-        if ((languageMenu && languageMenu.classList.contains('active')) || 
-            (speedMenu && speedMenu.classList.contains('active'))) {
-            return; 
-        }
-
         customControls.style.opacity = '0';
         customControls.classList.remove('active');
         if (centerControls) centerControls.classList.remove('active');
@@ -359,12 +336,10 @@ function iniciarReproductor() {
     });
 
     if (esDispositivoMovil) {
-        // En móviles ocultamos el slider de volumen
         const contenedorVolumen = document.querySelector(".volume-container");
         if (contenedorVolumen) contenedorVolumen.style.display = "none";
 
         let tiempoUltimoToque = 0;
-        let singleTapTimeout = null; // 👈 Variable para controlar el retraso del toque simple
 
         videoWrapper.addEventListener('click', (e) => {
             const esControl = e.target.closest('button, input, a, .custom-controls, .center-controls-overlay');
@@ -373,31 +348,30 @@ function iniciarReproductor() {
             const tiempoActual = new Date().getTime();
             const diferenciaTiempo = tiempoActual - tiempoUltimoToque;
 
-            // Detectar doble toque (menos de 300ms entre toques)
+            // Detectar doble toque
             if (diferenciaTiempo < 300 && diferenciaTiempo > 0) {
-                // 🛑 MAGIA: Si es doble toque, cancelamos inmediatamente cualquier acción de toque simple pendiente
-                clearTimeout(singleTapTimeout);
-
                 const toqueX = e.clientX || e.changedTouches?.[0]?.clientX;
                 const tercio = window.innerWidth / 3;
 
                 if (toqueX < tercio) {
                     video.currentTime = Math.max(0, video.currentTime - 10);
+                    mostrarControles();
                 } else if (toqueX > tercio * 2) {
                     video.currentTime = Math.min(video.duration || 0, video.currentTime + 10);
+                    mostrarControles();
                 } else {
                     toggleFullScreen(); // Doble toque central = Pantalla completa
                 }
             } else {
-                // Limpiamos cualquier timeout anterior antes de crear uno nuevo
-                clearTimeout(singleTapTimeout);
-
-                // Toque simple con retraso para dar espacio a ver si era doble toque
-                singleTapTimeout = setTimeout(() => {
-                    if (customControls.classList.contains('active')) {
-                        ocultarControles();
-                    } else {
-                        mostrarControles();
+                // Toque simple: Solo Muestra/Oculta menús
+                setTimeout(() => {
+                    const diferencia = new Date().getTime() - tiempoUltimoToque;
+                    if (diferencia > 250) { 
+                        if (customControls.classList.contains('active')) {
+                            ocultarControles();
+                        } else {
+                            mostrarControles();
+                        }
                     }
                 }, 250);
             }
@@ -405,7 +379,7 @@ function iniciarReproductor() {
         });
 
         video.addEventListener('playing', () => {
-             // Opcional: si arranca, nos aseguramos de que no fuerce nada extraño
+             mostrarControles();
         });
 
     } else {

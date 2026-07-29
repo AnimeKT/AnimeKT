@@ -171,7 +171,7 @@
 .speed-container { position: relative; }
 .speed-menu {
     position: absolute; 
-    bottom: 30px; /* 🔥 También lo subimos un poco */
+    bottom: 55px; /* 🔥 También lo subimos un poco */
     left: 50%; 
     transform: translateX(-50%);
     background: var(--menu-bg); 
@@ -185,7 +185,7 @@
 }
 .speed-menu.active { display: flex; }
 .speed-option {
-    padding: 6px 15px; cursor: pointer; color: white; font-size: 14px; text-align: center; transition: 0.2s;
+    padding: 10px 25px; cursor: pointer; color: white; font-size: 14px; text-align: center; transition: 0.2s;
 }
 .speed-option:hover { background: #374151; color: var(--primary-color); }
 
@@ -196,7 +196,7 @@
 
 .language-menu {
     position: absolute; 
-    bottom: 30px; /* 🔥 Lo subimos de 45px a 55px para alejarlo de la barra */
+    bottom: 55px; /* 🔥 Lo subimos de 45px a 55px para alejarlo de la barra */
     left: 50%; 
     transform: translateX(-50%);
     background: var(--menu-bg); 

@@ -97,7 +97,8 @@ function extraerDatosAnime(texto) {
         titulo: "Título Desconocido", titulosAlternativos: "", meta: "• Subtitulado • Género desconocido",
         sinopsis: "No hay sinopsis disponible.", estado: "Desconocido", tipo: "TV", año: "", 
         dia: "", audio: "Subtitulado", estudio: "Desconocido", autor: "", generosTexto: "Desconocido",
-        textoBuscable: "", topicsArray: [] 
+        textoBuscable: "", topicsArray: [],
+        generos: [] // <--- ¡AÑADE ESTA LÍNEA AQUÍ!
     };
 
     const extraerRegex = (regex) => {
@@ -238,7 +239,8 @@ function aplicarFiltros() {
 
         if (filtrosActuales.genero) {
             const generoFiltro = normalizar(filtrosActuales.genero);
-            const coincideGenero = datos.generos.some(genero => normalizar(genero).includes(generoFiltro));
+            // Añadimos "datos.generos &&" para asegurarnos de que el array exista antes de buscar en él
+            const coincideGenero = datos.generos && datos.generos.some(genero => normalizar(genero).includes(generoFiltro));
             if (!coincideGenero) return false;
         }
 
@@ -464,6 +466,7 @@ async function iniciarBuscador() {
         });
 
         poblarFiltroAnios();
+        poblarFiltroGeneros();
         aplicarFiltros();
 
     } catch (error) {
@@ -491,6 +494,41 @@ function poblarFiltroAnios() {
         option.value = anio;
         option.textContent = anio;
         selectAno.appendChild(option);
+    });
+}
+
+function poblarFiltroGeneros() {
+    const selectGenero = document.getElementById("filter-genero");
+    if (!selectGenero) return;
+
+    // Reseteamos el select manteniendo la opción por defecto
+    selectGenero.innerHTML = '<option value="">Género: Seleccionar</option>';
+
+    const generosSet = new Set();
+    
+    // Recorremos todos los animes extraídos
+    todosLosAnimes.forEach(anime => {
+        if (anime.datos.generos && Array.isArray(anime.datos.generos)) {
+            anime.datos.generos.forEach(genero => {
+                let genLimpio = genero.trim();
+                if (genLimpio) {
+                    // Estandarizamos: Primera letra en mayúscula, el resto en minúscula
+                    genLimpio = genLimpio.charAt(0).toUpperCase() + genLimpio.slice(1).toLowerCase();
+                    generosSet.add(genLimpio);
+                }
+            });
+        }
+    });
+
+    // Convertimos el Set a Array y lo ordenamos alfabéticamente
+    const generosUnicos = Array.from(generosSet).sort((a, b) => a.localeCompare(b));
+
+    // Agregamos cada género al HTML
+    generosUnicos.forEach(genero => {
+        const option = document.createElement("option");
+        option.value = genero; 
+        option.textContent = genero;
+        selectGenero.appendChild(option);
     });
 }
 
