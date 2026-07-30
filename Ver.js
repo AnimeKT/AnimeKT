@@ -330,7 +330,7 @@ async function iniciarPaginaVer() {
                 // 👇 AGREGA ESTA LÍNEA 👇
                 currentSeasonIndexGlobal = e.target.selectedIndex; 
                 
-                cargarListaVideos("AnimeKT2", parseInt(e.target.value));
+                cargarListaVideos("AnimeKTe", parseInt(e.target.value));
                 Array.from(seasonSelect.options).forEach(opt => {
                     if (opt.selected && opt.dataset.name) opt.textContent = opt.dataset.name;
                 });
@@ -477,12 +477,28 @@ async function cargarListaVideos(nombreGrupo, topicId) {
 
         videos.forEach((vid, index) => {
             let textoMensaje = "";
+            let textoOriginal = vid.message ? vid.message.trim() : "";
 
-            // Si el video tiene texto en Telegram (ej: "Episodio 4.5", "OVA", etc.)
-            if (vid.message && vid.message.trim() !== "") {
-                textoMensaje = vid.message.trim();
+            // 1. Buscamos excepciones escritas en texto normal (ej: 4.5, 12.5, OVA, Película)
+            let matchEspecial = textoOriginal.match(/(ova|pel[íi]cula|especial|\b\d+\.\d+\b)/i);
+
+            if (matchEspecial) {
+                // Si encuentra un decimal (ej: 4.5)
+                let matchDecimal = textoOriginal.match(/\b\d+\.\d+\b/);
+                if (matchDecimal) {
+                    textoMensaje = `Episodio ${matchDecimal[0]}`;
+                    
+                    // 🔥 LA MAGIA AQUÍ: Sincronizamos el contador
+                    // Toma el "4.5", lo redondea a "4" y le suma "1" para que el próximo sea "5".
+                    contadorEpisodios = Math.floor(parseFloat(matchDecimal[0])) + 1;
+                    
+                } else {
+                    // Si encuentra la palabra OVA o PELÍCULA
+                    textoMensaje = matchEspecial[0].toUpperCase();
+                    // Aquí NO tocamos el contador. Si ves una OVA entre el cap 2 y 3, el siguiente normal seguirá siendo 3.
+                }
             } else {
-                // Si no tiene texto, usa el contador actual y luego suma 1
+                // 2. Si no hay excepciones, numeración normal
                 textoMensaje = `Episodio ${contadorEpisodios}`;
                 contadorEpisodios++; 
             }
@@ -753,7 +769,7 @@ function llenarTemporadas(idioma) {
         option.value = topicId;
         option.textContent = arregloTopics.length === 1 ? "Temporada Única" : `Temporada ${index + 1} (Cargando...)`;
         seasonSelect.appendChild(option);
-        cargarDatosTemporadaOption("AnimeKT2", topicId, option, index, arregloTopics.length);
+        cargarDatosTemporadaOption("AnimeKTe", topicId, option, index, arregloTopics.length);
     });
 
     // 🧠 MAGIA 1: Mantener la misma temporada
@@ -771,7 +787,7 @@ function llenarTemporadas(idioma) {
         currentSeasonIndexGlobal = seasonSelect.selectedIndex;
     }
     
-    cargarListaVideos("AnimeKT2", initialTopic);
+    cargarListaVideos("AnimeKTe", initialTopic);
 }
 
 // Escuchamos la señal del botón "Sub / Dub" desde reproductor.js
