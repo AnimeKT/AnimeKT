@@ -539,7 +539,8 @@ async function cargarListaVideos(nombreGrupo, topicId) {
         if (videos.length > 0) {
             if (!botonAReproducir) {
                 botonAReproducir = episodesGrid.firstChild;
-                textoAReproducir = videos[0].message ? videos[0].message.trim() : "Episodio 1";
+                // 🔥 CORRECCIÓN: Ahora tomamos el texto limpio de la tarjetita en lugar del mensaje crudo con emojis
+                textoAReproducir = botonAReproducir.querySelector('.episode-badge').textContent;
             }
             
             reproducirVideo(videoAReproducir, botonAReproducir, textoAReproducir, tiempoInicio);
