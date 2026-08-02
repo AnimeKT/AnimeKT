@@ -52,27 +52,28 @@ h2 { margin: 10px 0 0 0; color: var(--secondary-text-color); font-size: 16px; fo
 .navbar {
     width: 100%;
     background-color: var(--surface-color);
-    padding: 8px 40px;
+    padding: 4px 16px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    box-sizing: border-box;
     position: fixed; /* Fija la barra en la parte superior */
     top: 0;
     left: 0;
     z-index: 1000;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    box-sizing: border-box;
+    min-height: 38px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.25);
 }
 
 /* Evita que el contenido de la página se esconda debajo de la barra fija */
 body {
-    padding-top: 50px; 
+    padding-top: 38px;
 }
 
 .nav-left {
     display: flex;
     align-items: center;
-    gap: 40px;
+    gap: 30px;
 }
 
 .logo {
@@ -103,116 +104,89 @@ body {
     color: var(--primary-text-color);
 }
 
+.nav-left {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    min-width: 0;
+}
+
 .nav-right {
     display: flex;
     align-items: center;
-    gap: 25px;
+    gap: 16px;
+    justify-content: flex-end;
+    min-width: 0;
 }
 
 /* Buscador */
-search-box {
-    display: flex;
-    align-items: center;
-    background: var(--background-color);
-    border-radius: 30px; /* Forma de píldora más pronunciada */
-    padding: 6px 15px;
-    border: 1px solid #444;
+.nav-search-container {
     position: relative;
-    overflow: hidden; /* Para contener el efecto de luz */
-    
-    /* Transición elástica suave */
-    transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-}
-
-/* Efecto al pasar el ratón (Hover) */
-.search-box:hover {
-    border-color: #666;
-    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3);
-}
-
-/* Efecto al hacer clic dentro del buscador (Focus) */
-.search-box:focus-within {
-    border-color: var(--accent-color);
-    box-shadow: 0 0 15px rgba(0, 255, 204, 0.2), 0 0 5px var(--accent-color) inset;
-    background: #111;
-}
-
-/* El Input */
-.search-box input {
-    background: transparent;
-    border: none;
-    color: white;
-    padding: 8px 5px;
-    outline: none;
-    width: 200px;
+    flex: 0 0 auto;
+    width: auto;
+    max-width: 250px;
+    min-width: 180px;
     margin: 0;
-    font-size: 15px;
-    /* Transición para cuando cambie de tamaño */
-    transition: width 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
-/* Expansión del input al hacer clic */
-.search-box:focus-within input {
-    width: 280px; /* Se hace más ancho suavemente */
-}
-
-/* Animación del placeholder */
-.search-box input::placeholder {
-    color: var(--secondary-text-color);
-    transition: opacity 0.3s ease;
-}
-
-.search-box:focus-within input::placeholder {
-    opacity: 0.4; /* Se desvanece un poco al escribir */
-}
-
-/* El Botón */
-.search-box button {
-    background: transparent;
-    border: none;
-    color: var(--secondary-text-color);
-    cursor: pointer;
+.search-input-wrapper {
     display: flex;
     align-items: center;
-    justify-content: center;
-    padding: 5px;
-    border-radius: 50%;
-    transition: all 0.3s ease;
+    width: 100%;
+    background-color: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    padding: 0 6px;
+    transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    min-height: 28px;
+    box-sizing: border-box;
 }
 
-/* Efecto del botón al pasar el ratón */
-.search-box button:hover {
-    color: var(--accent-color);
-    transform: scale(1.15) rotate(5deg); /* Pequeño salto y rotación */
+.search-input-wrapper:hover,
+.search-input-wrapper:focus-within {
+    background-color: rgba(255, 255, 255, 0.06);
+    border-color: rgba(135, 116, 225, 0.5);
+    box-shadow: 0 0 0 1px rgba(135, 116, 225, 0.15);
 }
 
-/* Mantiene el color del botón cuando el buscador está activo */
-.search-box:focus-within button {
-    color: var(--accent-color);
+.search-input-wrapper input {
+    flex: 1;
+    min-width: 0;
+    background: transparent;
+    border: none;
+    color: #fff;
+    width: 100%;
+    outline: none;
+    font-size: 25px;
+    line-height: 1.1;
+    padding: 0;
 }
 
-/* --- EL TOQUE EXTRA: Efecto de barrido de luz --- */
-.search-box::before {
-    content: '';
+.search-input-wrapper input::placeholder {
+    color: rgba(255, 255, 255, 0.55);
+}
+
+.search-input-wrapper i {
+    color: rgba(135, 116, 225, 0.9);
+    font-size: 20px;
+    margin-left: 4px;
+    flex-shrink: 0;
+}
+
+.nav-search-results {
     position: absolute;
-    top: 0;
-    left: -100%;
-    width: 50%;
-    height: 100%;
-    background: linear-gradient(
-        to right, 
-        transparent, 
-        rgba(255, 255, 255, 0.08), 
-        transparent
-    );
-    transform: skewX(-20deg);
-}
-
-/* Dispara el barrido de luz al hacer hover */
-.search-box:hover::before {
-    left: 150%;
-    transition: all 0.7s ease;
+    top: calc(100% + 10px);
+    left: 0;
+    width: 100%;
+    background-color: rgba(16, 18, 28, 0.98);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+    padding: 12px;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
 }
 
 /* Menú de Perfil Desplegable */
@@ -728,53 +702,12 @@ h2.section-title {
     opacity: 1;
 }
 
-/* Contenedor principal relativo para posicionar el dropdown */
-.nav-search-container {
-    position: relative;
-    width: 190px; /* Más delgado para que entre mejor en el navbar */
-    max-width: 190px;
-}
-
-/* Estilo del Input (image_4f359d.jpg) */
-.search-input-wrapper {
-    display: flex;
-    align-items: center;
-    background-color: #15171f; /* Color oscuro del input */
-    border: 1px solid #2c2f42;
-    border-radius: 16px;
-    padding: 5px 10px;
-    transition: border-color 0.3s ease;
-    min-height: 34px;
-}
-
-.search-input-wrapper:focus-within {
-    border-color: #6060ee; /* Brillo al enfocar */
-}
-
-.search-input-wrapper input {
-    background: transparent;
-    border: none;
-    color: #fff;
-    width: 100%;
-    outline: none;
-    font-size: 13px;
-    line-height: 1.2;
-    padding: 0;
-}
-
-.search-input-wrapper i {
-    color: #7b88a1;
-    font-size: 13px;
-    margin-left: 6px;
-}
-
 /* Caja de resultados (image_4f32d6.png) */
 .nav-search-results {
     position: absolute;
     top: calc(100% + 10px);
     left: 0;
-    width: 240px;
-    min-width: 220px;
+    width: 100%;
     background-color: #181920; /* Fondo oscuro azulado */
     border: 1px solid #2d2e3e;
     border-radius: 10px;
@@ -893,14 +826,30 @@ h2.section-title {
         align-items: center !important;
     }
     
-    .nav-search-container { 
-        width: 24px !important; 
-        min-width: 24px !important; 
-        overflow: hidden !important; 
+    .nav-search-container {
+        display: none !important;
+        flex: 1 1 auto !important;
+        width: 100% !important;
+        max-width: none !important;
+        min-width: 0 !important;
+        overflow: visible !important;
     }
-    .search-input-wrapper input { display: none !important; }
-    .search-input-wrapper { background: transparent !important; border: none !important; padding: 0 !important; min-height: auto !important; }
-    .search-input-wrapper i { font-size: 20px !important; color: white !important; margin: 0 !important; }
+    .search-input-wrapper {
+        padding: 6px 10px !important;
+        min-height: 38px !important;
+        border-radius: 24px !important;
+        background-color: rgba(255, 255, 255, 0.06) !important;
+    }
+    .search-input-wrapper input {
+        display: block !important;
+        font-size: 20px !important;
+        padding: 4px 0 !important;
+    }
+    .search-input-wrapper i {
+        font-size: 20px !important;
+        color: rgba(255, 255, 255, 0.9) !important;
+        margin: 0 0 0 10px !important;
+    }
 
     .profile-menu {
         width: 32px !important;

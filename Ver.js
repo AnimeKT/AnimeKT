@@ -254,7 +254,7 @@ async function iniciarPaginaVer() {
         // 🔥 LLENAR EL CATÁLOGO PARA EL MINI BUSCADOR 🔥
         // ==========================================
         try {
-            const mensajesBuscador = await client.getMessages("AnimeKT1", { replyTo: 16, limit: 100 });
+            const mensajesBuscador = await client.getMessages("AnimeKT1", { replyTo: 16, limit: 300 });
             let animesAgrupadosBuscador = {};
             
             mensajesBuscador.forEach(msg => {
@@ -315,6 +315,16 @@ async function iniciarPaginaVer() {
 
         const datosAnime = extraerDatosAnime(textoAnime);
         datosAnimeGlobal = datosAnime; // Guardamos globalmente
+
+        // ==========================================
+        // OCULTAR SOLO LAS OPCIONES DE IDIOMA INEXISTENTES
+        // ==========================================
+        const optDub = document.querySelector('.language-option[data-lang="dub"]');
+        const optSub = document.querySelector('.language-option[data-lang="sub"]');
+
+        // Oculta la opción específica dentro del menú si no tiene episodios asignados
+        if (optDub) optDub.style.display = datosAnime.topicsDub.length > 0 ? "block" : "none";
+        if (optSub) optSub.style.display = datosAnime.topicsSub.length > 0 ? "block" : "none";
 
         if (datosAnime.topicsSub.length === 0 && datosAnime.topicsDub.length === 0) {
             if (titleContainer) titleContainer.textContent = "Sin episodios disponibles"; 

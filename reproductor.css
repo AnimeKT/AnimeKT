@@ -264,7 +264,7 @@
     
     /* 1. Reproductor de Video (Proporción 16:9 y apegado arriba) */
     .hero-player-section {
-    margin-top: 16px; /* 👈 CAMBIO CLAVE: Bájalo para que el navbar no lo tape */
+    margin-top: 28px; /* 👈 CAMBIO CLAVE: Bájalo para que el navbar no lo tape */
     width: 100%;
     min-height: calc(100vh - 75px); /* 👈 Ajústalo igual que el margin-top */
     display: flex;

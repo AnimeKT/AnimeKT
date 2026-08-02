@@ -4,14 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Reproductor - AnimeKT</title>
-    <!-- ⚠️ CAMBIA "styles.css" por el nombre de tu archivo CSS principal -->
+    
     <link rel="stylesheet" href="styles.css"> 
     <link rel="stylesheet" href="Ver.css">
     <link rel="stylesheet" href="reproductor.css">
 </head>
 <body>
 
-    <!-- ================= NAVBAR ================= -->
+    
     <nav class="navbar">
         <div class="nav-left">
             <a href="/home.html" class="logo">AnimeKT</a>
@@ -22,7 +22,7 @@
         </div>
         
         <div class="nav-right">
-            <!-- Mini Buscador en Navbar -->
+            
             <div class="nav-search-container" id="navSearchContainer">
                 <div class="search-input-wrapper">
                     <input type="text" id="navSearchInput" placeholder="Buscar anime..." autocomplete="off">
@@ -34,15 +34,15 @@
                 </div>
             </div>
 
-            <!-- Perfil y Ajustes -->
+            
             <div class="profile-menu" id="profile-menu">
                 <div class="profile-icon" id="profile-icon">
-                    <!-- Icono SVG de usuario -->
+                    
                     <svg viewBox="0 0 24 24" width="20" height="20" fill="white">
                         <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
                     </svg>
                 </div>
-                <!-- Menú Desplegable -->
+                
                 <div class="dropdown-content" id="dropdown-content">
                     <a href="#">Ajustes de cuenta</a>
                     <a href="#">Mi Lista</a>
@@ -54,24 +54,24 @@
         </div>
     </nav>
 
-    <!-- ================= REPRODUCTOR ================= -->
+    
     <main id="video-wrapper" class="hero-player-section">
         
-        <!-- ================= NUEVO CONTENEDOR DEL VIDEO ================= -->
+        
         <div class="video-wrapper" id="custom-video-wrapper">
             <video id="main-video-player" class="video-element" poster="https://via.placeholder.com/1920x1080/14151a/ffffff?text=Cargando+Episodio...">
                 <source src="" type="video/mp4">
             </video>
 
-            <!-- Controles flotantes en el centro de la pantalla (Play/Pause, Prev, Next) -->
+            
             <div class="center-controls-overlay" id="center-controls">
                 <button class="center-btn" id="btn-prev-video">
                     <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
                 </button>
                 <button class="center-btn play-pause-btn" id="btn-center-play">
-                    <!-- Ícono por defecto (pausado, por lo que muestra botón de play) -->
+                    
                     <svg viewBox="0 0 24 24" class="icon-play"><path d="M8 5v14l11-7z"/></svg>
-                    <!-- Ícono de pausa (oculto por defecto) -->
+                    
                     <svg viewBox="0 0 24 24" class="icon-pause" style="display: none;"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
                 </button>
                 <button class="center-btn" id="btn-next-video">
@@ -80,23 +80,23 @@
             </div>
 
             
-            <!-- Nuevos Controles Flotantes -->
+            
             <div class="custom-controls" id="custom-controls">
                 
-                <!-- Barra de Progreso con Tooltip -->
+                
                 <div class="progress-wrapper" id="progress-wrapper">
                     <input type="range" class="progress-slider" id="progress-slider" min="0" max="100" step="0.1" value="0">
                     <div class="time-tooltip" id="time-tooltip">00:00</div>
                 </div>
 
-                <!-- Botones Inferiores -->
+                
                 <div class="controls-main">
-                    <!-- Botón de Play -->
+                    
                     <button class="control-btn" id="btn-play">
                         <svg viewBox="0 0 24 24" id="play-icon"><path d="M8 5v14l11-7z"/></svg>
                     </button>
                     
-                    <!-- Contenedor de Volumen -->
+                    
                     <div class="volume-container">
                         <button class="control-btn" id="btn-mute">
                             <svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
@@ -104,15 +104,15 @@
                         <input type="range" class="volume-slider" id="volume-slider" min="0" max="1" step="0.1" value="1">
                     </div>
 
-                    <!-- Tiempo -->
+                    
                     <div class="time-display">
                         <span id="time-current">0:00</span> / <span id="time-duration">0:00</span>
                     </div>
                     
-                    <!-- Espaciador para separar izquierda y derecha -->
+                    
                     <div class="spacer"></div>
 
-                    <!-- Velocidad de Reproducción -->
+                    
                     <div class="speed-container">
                         <button class="control-btn text-btn" id="btn-speed">1x</button>
                         <div class="speed-menu" id="speed-menu">
@@ -124,11 +124,11 @@
                         </div>
                     </div>
 
-                    <!-- 🔥 NUEVO: Menú de Idiomas / Subtítulos 🔥 -->
+                    
                     <div class="language-container" id="language-container">
                         <button class="control-btn" id="btn-language" title="Subtítulos / Idioma">
                             
-                            <!-- Tu icono original arreglado para que no se vea como un cuadro sólido -->
+                            
                             <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="fill: none !important;">
                                 <rect x="3" y="5" width="18" height="14" rx="2" ry="2"></rect>
                                 <path d="M7 11h3"></path>
@@ -138,22 +138,22 @@
 
                         </button>
                         <div class="language-menu" id="language-menu">
-                            <!-- Los data-lang son las "llaves" que usaremos en JS -->
+                            
                             <div class="language-option active" data-lang="sub">Sub</div>
                             <div class="language-option" data-lang="dub">Dub</div>
                         </div>
                     </div>
 
-                    <!-- Pantalla Completa -->
+                    
                     <button class="control-btn" id="btn-fullscreen">
                         <svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
                     </button>
                 </div>
             </div>
         </div>
-        <!-- ================= FIN DEL NUEVO CONTENEDOR ================= -->
+        
 
-        <!-- Información del Video y Lista de Episodios (MANTENEMOS ESTO DE TU CÓDIGO ORIGINAL) -->
+        
         <div class="video-info-container">
             <div class="video-header">
                 <div>
@@ -162,25 +162,25 @@
                 </div>
             </div>
 
-            <!-- Contenedor de Episodios -->
+            
             <div id="episodes-container" class="episodes-section">
-                <!-- NUEVO: Selector de Temporadas -->
+                
                 <div class="season-selector-container">
                     <select id="season-select" class="season-dropdown">
-                        <!-- Las opciones (Temporada 1, Temporada 2...) se llenarán automáticamente con JS -->
+                        
                     </select>
                 </div>
 
                 <div id="episodes-grid" class="episodes-grid">
-                    <!-- Aquí Ver.js creará los <button> de cada episodio -->
+                    
                 </div>
             </div>
         </div>
     </main>
 
-    <!-- Nuevo script del reproductor ANTES de tu script principal -->
+    
 
-    <!-- Script principal -->
+    
     <script type="module" src="Ver.js"></script>
 </body>
 </html>

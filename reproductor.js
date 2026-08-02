@@ -48,6 +48,13 @@ function iniciarReproductor() {
     video.addEventListener("canplay", () => {
         spinner.classList.remove("active");
     });
+
+    // ==========================================
+    // AUTO-PLAY AL FINALIZAR EL EPISODIO
+    // ==========================================
+    video.addEventListener("ended", () => {
+        document.dispatchEvent(new CustomEvent("siguienteCapitulo"));
+    });
     
     function formatTime(seconds) {
         if (isNaN(seconds)) return "0:00";
@@ -196,6 +203,12 @@ function iniciarReproductor() {
     btnSpeed.addEventListener("click", (e) => {
         e.stopPropagation();
         speedMenu.classList.toggle("active");
+        
+        // 🔥 Le decimos que cierre el menú de idiomas si está abierto
+        const languageMenu = document.getElementById("language-menu");
+        if (languageMenu) {
+            languageMenu.classList.remove("active");
+        }
     });
 
     speedOptions.forEach(option => {
@@ -393,8 +406,14 @@ function iniciarReproductor() {
             }
         });
         
-        // En PC, un click en cualquier parte del video hace play/pause
-        video.addEventListener('click', togglePlay);
+        // En PC, un clic sobre el área del video alterna play/pausa.
+        videoWrapper.addEventListener('click', (e) => {
+            const esControl = e.target.closest('button, input, a, select, .custom-controls, .center-controls-overlay, .speed-container, .language-container');
+            if (esControl) return;
+
+            togglePlay();
+            mostrarControles();
+        });
     }
 } // Aquí cierra la función iniciarReproductor()
 
