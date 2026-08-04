@@ -489,26 +489,34 @@ async function cargarListaVideos(nombreGrupo, topicId) {
             let textoMensaje = "";
             let textoOriginal = vid.message ? vid.message.trim() : "";
 
-            // 1. Buscamos excepciones escritas en texto normal (ej: 4.5, 12.5, OVA, Película)
+            // 1. MAGIA NUEVA: Buscamos si forzaste el número con corchetes (ej: [13] o [1123])
+            let matchForzado = textoOriginal.match(/\[(\d+)\]/);
+            
+            // 2. Buscamos excepciones escritas en texto normal (ej: 4.5, 12.5, OVA, Película)
             let matchEspecial = textoOriginal.match(/(ova|pel[íi]cula|especial|\b\d+\.\d+\b)/i);
 
-            if (matchEspecial) {
+            if (matchForzado) {
+                // Si el mensaje de Telegram tiene [13], lo extraemos
+                let numeroForzado = parseInt(matchForzado[1]);
+                textoMensaje = `Episodio ${numeroForzado}`;
+                
+                // Actualizamos el contador global para que el PRÓXIMO capítulo sea 14
+                contadorEpisodios = numeroForzado + 1;
+                
+            } else if (matchEspecial) {
                 // Si encuentra un decimal (ej: 4.5)
                 let matchDecimal = textoOriginal.match(/\b\d+\.\d+\b/);
                 if (matchDecimal) {
                     textoMensaje = `Episodio ${matchDecimal[0]}`;
-                    
-                    // 🔥 LA MAGIA AQUÍ: Sincronizamos el contador
-                    // Toma el "4.5", lo redondea a "4" y le suma "1" para que el próximo sea "5".
+                    // Sincronizamos el contador sumando 1 al entero (4.5 -> 5)
                     contadorEpisodios = Math.floor(parseFloat(matchDecimal[0])) + 1;
-                    
                 } else {
                     // Si encuentra la palabra OVA o PELÍCULA
                     textoMensaje = matchEspecial[0].toUpperCase();
-                    // Aquí NO tocamos el contador. Si ves una OVA entre el cap 2 y 3, el siguiente normal seguirá siendo 3.
+                    // Aquí NO tocamos el contador para que siga su curso normal.
                 }
             } else {
-                // 2. Si no hay excepciones, numeración normal
+                // 3. Si no hay corchetes ni decimales, numeración normal automática
                 textoMensaje = `Episodio ${contadorEpisodios}`;
                 contadorEpisodios++; 
             }
