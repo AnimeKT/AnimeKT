@@ -442,8 +442,12 @@ async function cargarHero(nombreGrupo, topicId) {
             heroPhotos = animesEnEmision;
         }
 
-        heroPhotos.reverse();
-        catalogPhotos.reverse(); // Mantenemos el mismo orden
+        heroPhotos.sort((a, b) => b.id - a.id);
+        
+        catalogPhotos.sort((a, b) => {
+            // Aseguramos que los últimos mensajes de Telegram aparezcan primero en las tarjetas
+            return b.mensaje.id - a.mensaje.id;
+        }); // Mantenemos el mismo orden
 
         if (heroPhotos.length > 0) {
             console.log(`📸 ¡Hero cargado con ${heroPhotos.length} animes del día!`);
@@ -661,7 +665,7 @@ async function cambiarImagenHero(index) {
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
 
-                const webpDataUrl = canvas.toDataURL('image/webp', 0.8);
+                const webpDataUrl = canvas.toDataURL('image/webp', 0.95);
                 
                 // Guardar permanentemente en el navegador
                 try {
@@ -718,7 +722,7 @@ async function precargarYGuardarPortadas() {
                         const ctx = canvas.getContext('2d');
                         ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
 
-                        const webpDataUrl = canvas.toDataURL('image/webp', 0.8);
+                        const webpDataUrl = canvas.toDataURL('image/webp', 0.95);
                         try {
                             localStorage.setItem(`hero_img_${heroPhotos[i].id}`, webpDataUrl);
                         } catch (e) {}
@@ -868,14 +872,14 @@ async function cargarImagenCatalogo(msg) {
                 const canvas = document.createElement('canvas');
                 // Reducimos el tamaño a 300px de ancho porque es una tarjeta pequeña
                 // Esto ahorra muchísima memoria y hace que la web cargue rapidísimo
-                const targetWidth = 300; 
+                const targetWidth = 600; 
                 const targetHeight = Math.round((img.height * targetWidth) / img.width);
                 canvas.width = targetWidth;
                 canvas.height = targetHeight;
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
 
-                const webpDataUrl = canvas.toDataURL('image/webp', 0.7);
+                const webpDataUrl = canvas.toDataURL('image/webp', 0.85);
                 try { 
                     localStorage.setItem(`catalog_img_${msg.id}`, webpDataUrl); 
                 } catch (e) {

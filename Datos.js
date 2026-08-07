@@ -391,7 +391,7 @@ async function cargarFondoHero(msg) {
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
 
-                const webpDataUrl = canvas.toDataURL('image/webp', 0.8);
+                const webpDataUrl = canvas.toDataURL('image/webp', 0.95);
                 try { localStorage.setItem(`hero_img_${msg.id}`, webpDataUrl); } catch(e){}
 
                 aplicarEstilosFondo(webpDataUrl);
