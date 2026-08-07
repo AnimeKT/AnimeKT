@@ -387,14 +387,15 @@ async function cargarImagenBuscador(msg) {
             img.src = imageURL;
             img.onload = () => {
                 const canvas = document.createElement('canvas');
-                const targetWidth = 300; 
+                const esCelular = window.innerWidth <= 768;
+                const targetWidth = esCelular ? 350 : 600;
                 const targetHeight = Math.round((img.height * targetWidth) / img.width);
                 canvas.width = targetWidth;
                 canvas.height = targetHeight;
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
 
-                const webpDataUrl = canvas.toDataURL('image/webp', 0.8);
+                const webpDataUrl = canvas.toDataURL('image/webp', 0.95);
                 try { localStorage.setItem(`catalog_img_${msg.id}`, webpDataUrl); } catch(e){}
 
                 contenedorImagen.style.backgroundImage = `url('${webpDataUrl}')`;
