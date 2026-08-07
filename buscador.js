@@ -387,8 +387,7 @@ async function cargarImagenBuscador(msg) {
             img.src = imageURL;
             img.onload = () => {
                 const canvas = document.createElement('canvas');
-                const esCelular = window.innerWidth <= 768;
-                const targetWidth = esCelular ? 350 : 600;
+                const targetWidth = 300; 
                 const targetHeight = Math.round((img.height * targetWidth) / img.width);
                 canvas.width = targetWidth;
                 canvas.height = targetHeight;

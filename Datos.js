@@ -379,10 +379,7 @@ async function cargarFondoHero(msg) {
                 const canvas = document.createElement('canvas');
                 let targetWidth = img.width;
                 let targetHeight = img.height;
-                
-                // 👇 NUEVO: Adapta el tamaño del fondo según la pantalla del usuario
-                const esCelular = window.innerWidth <= 768;
-                const maxAllowedWidth = esCelular ? 800 : 1920;
+                const maxAllowedWidth = 1920; 
 
                 if (targetWidth > maxAllowedWidth) {
                     targetHeight = Math.round((targetHeight * maxAllowedWidth) / targetWidth);

@@ -652,10 +652,7 @@ async function cambiarImagenHero(index) {
                 const canvas = document.createElement('canvas');
                 let targetWidth = img.width;
                 let targetHeight = img.height;
-                
-                // 👇 NUEVO: Detecta si es celular o PC
-                const esCelular = window.innerWidth <= 768;
-                const maxAllowedWidth = esCelular ? 800 : 1920;
+                const maxAllowedWidth = 1920; 
 
                 if (targetWidth > maxAllowedWidth) {
                     targetHeight = Math.round((targetHeight * maxAllowedWidth) / targetWidth);
