@@ -92,7 +92,10 @@ function iniciarReproductor() {
         });
     }
 
-    btnPlay.addEventListener("click", togglePlay);
+    btnPlay.addEventListener("click", (e) => {
+    e.stopPropagation(); // Esto evita que el clic viaje al fondo del video
+    togglePlay();
+});
     // REMOVIDO: video.addEventListener("click", togglePlay); -> Se maneja en la sección táctil.
 
     // ==========================================
