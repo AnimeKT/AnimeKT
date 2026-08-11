@@ -16,7 +16,38 @@ const stepPhone = document.getElementById("step-phone");
 const stepCode = document.getElementById("step-code");
 const codeInput = document.getElementById("code-input");
 const btnVerifyCode = document.getElementById("btn-verify-code");
-const loginSection = document.getElementById("login-section");
+
+const inputsTexto = document.querySelectorAll('input[type="text"], input[type="number"]');
+
+function medirAnchoTexto(texto, fuente) {
+    const canvas = document.createElement('canvas');
+    const contexto = canvas.getContext('2d');
+    contexto.font = fuente;
+    return contexto.measureText(texto).width;
+}
+
+function actualizarChispa(input) {
+    const estilos = window.getComputedStyle(input);
+    const fuente = `${estilos.fontWeight} ${estilos.fontSize} ${estilos.fontFamily}`;
+    const textoHastaCursor = input.value.substring(0, input.selectionStart || 0);
+    const anchoTexto = medirAnchoTexto(textoHastaCursor, fuente);
+    const desplazamiento = input.scrollLeft;
+    const chispa = input.parentElement.querySelector('.portal-spark');
+    if (!chispa) return;
+    chispa.style.left = `calc(20px + ${anchoTexto - desplazamiento}px)`;
+    chispa.classList.remove('activo');
+    void chispa.offsetWidth;
+    chispa.classList.add('activo');
+}
+
+inputsTexto.forEach(input => {
+    input.addEventListener('input', function(evento) {
+        if (evento.inputType && evento.inputType.startsWith('delete')) {
+            return;
+        }
+        actualizarChispa(this);
+    });
+});
 
 // ==========================================
 // 2. CONFIGURACIÓN Y VARIABLES DE SESIÓN

@@ -1,0 +1,316 @@
+/* =========================================
+   1. RESETEO Y ESTILOS GLOBALES
+   ========================================= */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html, body {
+    min-height: 100%;
+    width: 100%;
+}
+
+body {
+    background-color: #000000;
+    background-image: url('image.jpe');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    color: white;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    overflow: hidden;
+}
+
+/* =========================================
+   2. VARIABLES Y ANIMACIONES GLOBALES
+   ========================================= */
+@property --angulo {
+    syntax: '<angle>';
+    initial-value: 0deg;
+    inherits: false;
+}
+
+@keyframes aparicionCircular {
+    0% {
+        opacity: 0;
+        clip-path: circle(0% at 50% 50%);
+        filter: blur(20px);
+    }
+    100% {
+        opacity: 1;
+        clip-path: circle(100% at 50% 50%);
+        filter: blur(0px);
+    }
+}
+
+@keyframes desaparicionCircular {
+    0% {
+        opacity: 1;
+        clip-path: circle(100% at 50% 50%);
+        filter: blur(0px);
+    }
+    100% {
+        opacity: 0;
+        clip-path: circle(0% at 50% 50%);
+        filter: blur(20px);
+    }
+}
+
+@keyframes destello {
+    0% { left: -150%; }
+    30% { left: 200%; }
+    100% { left: 200%; }
+}
+
+@keyframes girarBolita {
+    0% { --angulo: 0deg; }
+    100% { --angulo: 360deg; }
+}
+
+@keyframes brilloTexto {
+    0% {background-position: 0% 50%;}
+    50% {background-position: 100% 50%;}
+    100% {background-position: 0% 50%;}
+}
+
+@keyframes animacionPortal {
+    0% {
+        opacity: 1;
+        width: 2px;
+        transform: translateY(-50%) translateX(0) scaleY(1);
+    }
+    40% {
+        opacity: 1;
+        width: 40px;
+        transform: translateY(-50%) translateX(3px) scaleY(1.5);
+    }
+    100% {
+        opacity: 0;
+        width: 60px;
+        transform: translateY(-50%) translateX(15px) scaleY(0.2);
+    }
+}
+
+/* =========================================
+   3. CONTENEDOR PRINCIPAL Y EFECTOS VISUALES
+   ========================================= */
+.contenedor-registro {
+    background: rgba(34, 34, 34, 0.4);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    padding: 15px 30px 35px 30px; 
+    border-radius: 30px;
+    width: 90%;
+    max-width: 400px;
+    text-align: center;
+    box-shadow: 0px 8px 30px rgba(0,0,0,0.8);
+    animation: aparicionCircular 1.8s ease-out forwards;
+    position: relative;
+    overflow: hidden;
+}
+
+.contenedor-registro::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -150%;
+    width: 60%;
+    height: 100%;
+    background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.3) 50%, rgba(255,255,255,0) 100%);
+    transform: skewX(-25deg);
+    animation: destello 8s ease-in-out 1.8s infinite;
+    pointer-events: none;
+}
+
+.contenedor-registro::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 30px;
+    padding: 3px;
+    background: conic-gradient(
+        from var(--angulo) at 50% 50%,
+        transparent 50%,
+        rgba(124, 58, 237, 0.4) 85%,
+        #b28cff 98%,
+        #ffffff 100%
+    );
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+    animation: girarBolita 8s linear infinite;
+    filter: drop-shadow(0 0 8px rgba(178, 140, 255, 0.7));
+}
+
+/* =========================================
+   4. FORMULARIO E INPUTS
+   ========================================= */
+form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.titulo-principal {
+    font-size: 28px;
+    font-weight: bold;
+    margin-bottom: 2px; /* Reducimos esto casi a 0 */
+    background: linear-gradient(270deg, #ffffff, #b28cff, #8b5cf6, #ffffff);
+    background-size: 300% 300%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: brilloTexto 6s ease infinite;
+    filter: drop-shadow(0 0 10px rgba(139, 92, 246, 0.4));
+}
+
+.subtitulo {
+    color: #aaaaaa;
+    font-size: 16px;
+    margin-bottom: 30px;
+}
+
+.grupo-input {
+    display: flex;
+    flex-direction: column;
+    text-align: left;
+    gap: 8px;
+}
+
+.grupo-input label {
+    font-size: 13px;
+    font-weight: bold;
+    color: #dddddd;
+    letter-spacing: 0.5px;
+}
+
+input {
+    width: 100%;
+    padding: 15px 20px;
+    background-color: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    color: white;
+    font-size: 16px;
+    transition: all 0.3s ease;
+}
+
+input:focus {
+    outline: none;
+    background-color: rgba(255, 255, 255, 0.2);
+    border-color: #8b5cf6;
+}
+
+input::placeholder {
+    color: #aaaaaa;
+}
+
+/* =========================================
+   EFECTO DE PORTAL AL ESCRIBIR
+   ========================================= */
+.input-contenedor {
+    position: relative;
+    width: 100%;
+}
+
+.portal-spark {
+    position: absolute;
+    top: 50%;
+    left: 20px;
+    transform: translateY(-50%);
+    width: 0px;
+    height: 20px;
+    background: linear-gradient(to right, rgba(255,255,255,1) 0%, rgba(178, 140, 255, 0.8) 40%, transparent 100%);
+    border-radius: 50% 0 0 50%;
+    pointer-events: none;
+    opacity: 0;
+    filter: drop-shadow(0 0 6px #b28cff);
+    z-index: 10;
+}
+
+.portal-spark.activo {
+    animation: animacionPortal 0.35s ease-out;
+}
+
+/* =========================================
+   5. BOTONES Y TRANSICIONES DE PÁGINA
+   ========================================= */
+.btn-morado {
+    width: 100%;
+    margin-top: 15px;
+    padding: 15px;
+    background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+    color: white;
+    font-weight: bold;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.btn-morado:hover {
+    transform: translateY(-2px);
+    box-shadow: 0px 4px 15px rgba(139, 92, 246, 0.4);
+}
+
+.hidden {
+    display: none !important;
+}
+
+.animacion-salida {
+    animation: desaparicionCircular 1.2s ease-in forwards !important;
+}
+
+/* Separación y estilo para los enlaces bajo el botón */
+.contenedor-enlaces {
+    margin-top: 18px; /* separa los links del botón */
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+}
+.contenedor-enlaces .link-registro {
+    color: rgba(255,255,255,0.85);
+    font-size: 13px;
+    text-decoration: none;
+    padding: 6px 8px;
+    border-radius: 8px;
+    transition: background-color 0.15s, color 0.15s;
+}
+.contenedor-enlaces .link-registro:hover {
+    background: rgba(139,92,246,0.12);
+    color: #fff;
+}
+
+/* Añadimos un margen inferior al botón para mayor separación por si el HTML cambia */
+.btn-morado { margin-bottom: 6px; }
+
+/* =========================================
+   ESTILO DEL ENLACE DE REGISTRO
+   ========================================= */
+.link-registro {
+    display: block; /* Asegura que tome su propia línea */
+    font-size: 13px;
+    color: #aaaaaa; /* Color gris claro para que no quite protagonismo */
+    text-decoration: none; /* Quita la raya de abajo típica de los links */
+    margin-top: -3px; /* Lo acerca un poquito a la caja de arriba */
+    margin-bottom: 2px;
+    transition: color 0.3s ease, text-shadow 0.3s ease;
+}
+
+.link-registro:hover {
+    color: #b28cff; /* Se vuelve morado brillante al pasar el mouse */
+    text-shadow: 0 0 8px rgba(178, 140, 255, 0.6); /* Efecto de brillo neón */
+}
+
+
+
+
