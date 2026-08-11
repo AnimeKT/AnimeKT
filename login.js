@@ -91,8 +91,24 @@ btnSaveApi.addEventListener("click", () => {
     const enteredId = inputApiId.value.trim();
     const enteredHash = inputApiHash.value.trim();
 
-    if (!enteredId || !enteredHash) return alert("Debes ingresar API ID y API HASH.");
+    // 1. Validar que los campos no estén vacíos
+    if (!enteredId || !enteredHash) {
+        return alert("Debes ingresar API ID y API HASH.");
+    }
 
+    // 2. Validar que el API ID contenga SOLAMENTE números
+    const esApiIdValido = /^\d+$/.test(enteredId);
+    if (!esApiIdValido) {
+        return alert("El API ID es inválido. Debe contener solo números.");
+    }
+
+    // 3. Validar que el API HASH sea exactamente de 32 caracteres hexadecimales
+    const esApiHashValido = /^[a-fA-F0-9]{32}$/.test(enteredHash);
+    if (!esApiHashValido) {
+        return alert("El API HASH es inválido. Debe tener exactamente 32 caracteres (números y letras de la A a la F).");
+    }
+
+    // Si pasa todas las validaciones, procedemos a guardar y avanzar
     apiId = enteredId;
     apiHash = enteredHash;
     localStorage.setItem("user_api_id", apiId);
@@ -100,6 +116,7 @@ btnSaveApi.addEventListener("click", () => {
 
     inicializarCliente();
 
+    // Ocultar paso 1 y mostrar paso 2
     apiCredentialsStep.classList.add("hidden");
     loginMethodsContainer.classList.remove("hidden");
 });
