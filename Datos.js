@@ -170,9 +170,9 @@ function extraerDatosAnime(texto) {
     const titulosAlternativos = partesTitulo.length > 1 ? partesTitulo.slice(1).join(' - ') : "";
 
     const audio = extraerRegex(/Audio:\s*(.+)/i) || "Subtitulado";
-    const estado = extraerRegex(/Estado:\s*(.+)/i) || "Desconocido";
-    const estudio = extraerRegex(/Estudio:\s*(.+)/i) || "Desconocido";
-    const autor = extraerRegex(/Autor:\s*(.+)/i) || "Desconocido";
+    const estado = extraerRegex(/Estado:\s*([^\n\r]+)/i) || "Desconocido";
+    const estudio = extraerRegex(/Estudio:\s*([^\n\r]+)/i) || "Desconocido";
+    const autor = extraerRegex(/Autor:\s*([^\n\r]+)/i) || "Desconocido";
     const dia = extraerRegex(/D[íi]a:\s*(.+)/i) || "";
     const tipo = extraerRegex(/Tipo:\s*(.+)/i) || "TV";
     
@@ -345,6 +345,7 @@ function renderizarUI(datos) {
         document.getElementById("data-audio").textContent = datos.audio;
         document.getElementById("data-studio").textContent = datos.estudio;
         document.getElementById("data-status").textContent = datos.estado;
+        document.getElementById("data-author").textContent = datos.autor;
         techData.style.display = "block";
     }
 }
@@ -355,11 +356,15 @@ async function cargarFondoHero(msg) {
 
     // 👇 SOLUCIÓN 2: Inyectamos estilos CSS perfectos para que la imagen no se mutile
     const aplicarEstilosFondo = (url) => {
-        heroBackground.style.backgroundImage = `url('${url}')`;
-        heroBackground.style.backgroundSize = 'cover';
-        heroBackground.style.backgroundPosition = 'center 15%'; // Enfoca un poco más arriba del centro (donde están los rostros)
-        heroBackground.style.backgroundRepeat = 'no-repeat';
-    };
+    heroBackground.style.backgroundImage = `url('${url}')`;
+    
+    // Volvemos a 'cover' para rellenar los bordes negros
+    heroBackground.style.backgroundSize = 'cover'; 
+    
+    // Anclamos la imagen arriba al centro para no cortar las cabezas
+    heroBackground.style.backgroundPosition = 'top center'; 
+    heroBackground.style.backgroundRepeat = 'no-repeat';
+};
 
     const cachedImage = localStorage.getItem(`hero_img_${msg.id}`);
     if (cachedImage) {
