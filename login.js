@@ -147,26 +147,16 @@ btnSendCode.addEventListener("click", async () => {
                 throw new Error("2FA_NOT_SUPPORTED");
             },
             onError: (err) => {
-                console.error("Error en login:", err);
+                console.error("Error devuelto por Telegram:", err);
                 
-                // Si el error es por usar credenciales falsas o incorrectas
+                // 🚨 LA CLAVE ESTÁ AQUÍ 🚨
+                // Si el error es de API, LO LANZAMOS para romper el bucle infinito interno
                 if (err.message.includes("API_ID_INVALID")) {
-                    alert("❌ El API ID o API HASH son incorrectos o ficticios. Por favor, usa tus credenciales reales.");
-                    
-                    // Borrar las credenciales malas guardadas
-                    localStorage.removeItem("user_api_id");
-                    localStorage.removeItem("user_api_hash");
-                    apiId = "";
-                    apiHash = "";
-                    
-                    // Ocultar paso de número y regresar al paso de API
-                    loginMethodsContainer.classList.add("hidden");
-                    apiCredentialsStep.classList.remove("hidden");
-                } else {
-                    alert("Ocurrió un error: " + err.message);
+                    throw err; 
                 }
                 
-                // Restaurar el botón en caso de error
+                // Para otros errores (ej. código mal escrito), solo avisamos
+                alert("Ocurrió un error: " + err.message);
                 btnSendCode.textContent = "Enviar Código";
                 btnSendCode.disabled = false;
             },
@@ -179,17 +169,27 @@ btnSendCode.addEventListener("click", async () => {
         window.location.href = "/home.html";
 
     } catch (error) {
-        console.error("Fallo de conexión:", error);
+        console.error("Fallo de conexión crítico:", error);
         
-        // Capturar el error también aquí por si la librería lo lanza de otra forma
-        if (error.message.includes("API_ID_INVALID")) {
+        // Aquí capturamos el error lanzado y mostramos la alerta UNA SOLA VEZ
+        if (error.message && error.message.includes("API_ID_INVALID")) {
             alert("❌ El API ID o API HASH son incorrectos o ficticios. Por favor, usa tus credenciales reales.");
+            
+            // Limpiamos el almacenamiento y las variables
             localStorage.removeItem("user_api_id");
             localStorage.removeItem("user_api_hash");
+            apiId = "";
+            apiHash = "";
+            
+            // Vaciamos las cajas de texto para que no quede la basura escrita
+            inputApiId.value = "";
+            inputApiHash.value = "";
+            
+            // Ocultamos el paso del teléfono y mostramos el paso inicial
             loginMethodsContainer.classList.add("hidden");
             apiCredentialsStep.classList.remove("hidden");
         } else {
-            alert("Error de conexión. Intenta nuevamente.");
+            alert("Error crítico: " + (error.message || "Intenta nuevamente."));
         }
         
         btnSendCode.textContent = "Enviar Código";
