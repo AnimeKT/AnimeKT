@@ -490,8 +490,7 @@ function configurarControlesHero() {
             const dot = document.createElement('span');
             dot.className = `indicator ${index === 0 ? 'active' : ''}`;
             dot.onclick = () => {
-                cambiarImagenHero(index);
-                iniciarAutoSlide(); // 👇 NUEVO: Reinicia el reloj al hacer clic
+                cambiarImagenHero(index); // 👈 Solo llamamos a la función
             };
             indicatorsContainer.appendChild(dot);
         });
@@ -502,7 +501,6 @@ function configurarControlesHero() {
             let newIndex = currentHeroIndex - 1;
             if (newIndex < 0) newIndex = heroPhotos.length - 1; 
             cambiarImagenHero(newIndex);
-            iniciarAutoSlide(); // 👇 NUEVO: Reinicia el reloj al hacer clic
         };
     }
 
@@ -511,7 +509,6 @@ function configurarControlesHero() {
             let newIndex = currentHeroIndex + 1;
             if (newIndex >= heroPhotos.length) newIndex = 0; 
             cambiarImagenHero(newIndex);
-            iniciarAutoSlide(); // 👇 NUEVO: Reinicia el reloj al hacer clic
         };
     }
 }
@@ -578,42 +575,42 @@ function ejecutarTransicionDirecta(url, index) {
     activeLayer.classList.remove('active');
 }
 
-// --- 3. CAMBIAR IMAGEN (CONSULTANDO LOCALSTORAGE) ---
+// --- 3. CAMBIAR IMAGEN (SINCRONIZACIÓN PERFECTA) ---
 async function cambiarImagenHero(index) {
     if (isHeroLoading || !heroPhotos[index]) return;
     
     isHeroLoading = true;
     currentHeroIndex = index;
 
-    // Actualizar indicadores visuales
-    document.querySelectorAll('.hero-indicators .indicator').forEach((dot, i) => {
-        dot.className = `indicator ${i === index ? 'active' : ''}`;
-    });
+    // 1. FRENAR EL RELOJ VIEJO DE INMEDIATO
+    if (autoSlideInterval) {
+        clearInterval(autoSlideInterval);
+    }
 
- // NUEVO: Capturar todos los elementos de texto del Hero
+    // 2. ACTUALIZAR LOS TEXTOS AL INSTANTE (Para que el click se sienta rápido)
     const tituloAnime = document.querySelector('.hero-title-img');
     const metaTagsAnime = document.querySelector('.meta-tags');
     const descripcionAnime = document.querySelector('.hero-description');
-
-    if (heroPhotos[index]) {
-        // ATENCIÓN AQUÍ: Usamos .textoCombinado en lugar de .message para leer el álbum entero
-        const datos = extraerDatosAnime(heroPhotos[index].textoCombinado);
-        
-        // Inyectamos cada dato en su lugar correspondiente del HTML
-        if (tituloAnime) {
-            // Si hay títulos alternativos, los ponemos debajo con letra más pequeña usando HTML
-            if (datos.titulosAlternativos) {
-                tituloAnime.innerHTML = `${datos.titulo}<br><span style="font-size: 0.5em; font-weight: normal; color: #cbd5e1; display: block; margin-top: 5px;">${datos.titulosAlternativos}</span>`;
-            } else {
-                tituloAnime.textContent = datos.titulo;
-            }
+    
+    const datos = extraerDatosAnime(heroPhotos[index].textoCombinado);
+    
+    if (tituloAnime) {
+        if (datos.titulosAlternativos) {
+            tituloAnime.innerHTML = `${datos.titulo}<br><span style="font-size: 0.5em; font-weight: normal; color: #cbd5e1; display: block; margin-top: 5px;">${datos.titulosAlternativos}</span>`;
+        } else {
+            tituloAnime.textContent = datos.titulo;
         }
-        if (metaTagsAnime) metaTagsAnime.textContent = datos.meta;
-        if (descripcionAnime) descripcionAnime.textContent = datos.sinopsis;
-
-        actualizarBotonFavHero(heroPhotos[index].id);  // 👇 CORRECCIÓN PARA FAVORITOS
-        actualizarBotonPlayHero(heroPhotos[index].id);
     }
+    if (metaTagsAnime) metaTagsAnime.textContent = datos.meta;
+    if (descripcionAnime) descripcionAnime.textContent = datos.sinopsis;
+
+    actualizarBotonFavHero(heroPhotos[index].id);
+    actualizarBotonPlayHero(heroPhotos[index].id);
+
+    // 3. TRUCO DE DISEÑO: Apagamos todas las rayitas temporalmente ("Cargando")
+    document.querySelectorAll('.hero-indicators .indicator').forEach((dot) => {
+        dot.className = 'indicator'; 
+    });
 
     const layer1 = document.querySelector('.hero-layer.layer-1');
     const layer2 = document.querySelector('.hero-layer.layer-2');
@@ -622,21 +619,34 @@ async function cambiarImagenHero(index) {
     const activeLayer = layer1.classList.contains('active') ? layer1 : layer2;
     const nextLayer = activeLayer === layer1 ? layer2 : layer1;
 
+    // TODO ESTO OCURRE CUANDO LA IMAGEN 4K ESTÁ LISTA
     const ejecutarTransicion = (url) => {
+        
+        // Cambiar la imagen de fondo visualmente
         nextLayer.style.backgroundImage = `url('${url}')`;
         nextLayer.classList.add('active');
         activeLayer.classList.remove('active');
+        
+        // 4. ENCENDER LA RAYITA NUEVA (Arranca su animación desde cero milisegundos)
+        const currentDot = document.querySelectorAll('.hero-indicators .indicator')[index];
+        if (currentDot) {
+            currentDot.classList.add('active'); 
+        }
+
         isHeroLoading = false;
+
+        // 5. INICIAR EL RELOJ JS (Sincronización perfecta de 5 segundos con la rayita)
+        iniciarAutoSlide(); 
     };
 
-    // 1. Buscar en el localStorage del navegador
+    // 1. Buscar en el localStorage (Si está guardada, es instantáneo)
     const cachedImage = localStorage.getItem(`hero_img_${heroPhotos[index].id}`);
     if (cachedImage) {
         ejecutarTransicion(cachedImage);
         return;
     }
 
-    // 2. Si no está, lo descargamos de Telegram
+    // 2. Si no está, lo descargamos (Aquí es donde las rayitas grises evitan el desfase)
     try {
         console.log(`⏳ Descargando portada ${index + 1} de Telegram...`);
         const buffer = await client.downloadMedia(heroPhotos[index]);
@@ -665,9 +675,9 @@ async function cambiarImagenHero(index) {
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
 
-                const webpDataUrl = canvas.toDataURL('image/webp', 0.95);
+                // No olvides usar 1.0 para máxima nitidez
+                const webpDataUrl = canvas.toDataURL('image/webp', 1.0); 
                 
-                // Guardar permanentemente en el navegador
                 try {
                     localStorage.setItem(`hero_img_${heroPhotos[index].id}`, webpDataUrl);
                 } catch (e) {
@@ -679,12 +689,10 @@ async function cambiarImagenHero(index) {
             };
 
             img.onerror = () => {
-                console.error("❌ Error al procesar la imagen en el Canvas.");
                 isHeroLoading = false;
             };
         }
     } catch (error) {
-        console.error("❌ Error descargando la imagen de Telegram:", error);
         isHeroLoading = false;
     }
 }
