@@ -148,7 +148,27 @@ btnSendCode.addEventListener("click", async () => {
             },
             onError: (err) => {
                 console.error("Error en login:", err);
-                alert("Ocurrió un error: " + err.message);
+                
+                // Si el error es por usar credenciales falsas o incorrectas
+                if (err.message.includes("API_ID_INVALID")) {
+                    alert("❌ El API ID o API HASH son incorrectos o ficticios. Por favor, usa tus credenciales reales.");
+                    
+                    // Borrar las credenciales malas guardadas
+                    localStorage.removeItem("user_api_id");
+                    localStorage.removeItem("user_api_hash");
+                    apiId = "";
+                    apiHash = "";
+                    
+                    // Ocultar paso de número y regresar al paso de API
+                    loginMethodsContainer.classList.add("hidden");
+                    apiCredentialsStep.classList.remove("hidden");
+                } else {
+                    alert("Ocurrió un error: " + err.message);
+                }
+                
+                // Restaurar el botón en caso de error
+                btnSendCode.textContent = "Enviar Código";
+                btnSendCode.disabled = false;
             },
         });
 
@@ -160,6 +180,18 @@ btnSendCode.addEventListener("click", async () => {
 
     } catch (error) {
         console.error("Fallo de conexión:", error);
+        
+        // Capturar el error también aquí por si la librería lo lanza de otra forma
+        if (error.message.includes("API_ID_INVALID")) {
+            alert("❌ El API ID o API HASH son incorrectos o ficticios. Por favor, usa tus credenciales reales.");
+            localStorage.removeItem("user_api_id");
+            localStorage.removeItem("user_api_hash");
+            loginMethodsContainer.classList.add("hidden");
+            apiCredentialsStep.classList.remove("hidden");
+        } else {
+            alert("Error de conexión. Intenta nuevamente.");
+        }
+        
         btnSendCode.textContent = "Enviar Código";
         btnSendCode.disabled = false;
     }
