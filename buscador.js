@@ -1,5 +1,6 @@
 import { Api, TelegramClient } from "telegram";
 import { StringSession } from "telegram/sessions";
+import localforage from "localforage";
 
 // ==========================================
 // 1. VERIFICACIÓN DE SESIÓN Y CLIENTE
@@ -371,9 +372,20 @@ async function cargarImagenBuscador(msg) {
     const contenedorImagen = document.getElementById(`catalog-img-${msg.id}`);
     if (!contenedorImagen) return;
 
-    const cachedImage = localStorage.getItem(`catalog_img_${msg.id}`);
-    if (cachedImage) {
-        contenedorImagen.style.backgroundImage = `url('${cachedImage}')`;
+    try {
+        const cachedBlob = await localforage.getItem(`catalog_img_${msg.id}`);
+        if (cachedBlob) {
+            const objectURL = URL.createObjectURL(cachedBlob);
+            contenedorImagen.style.backgroundImage = `url('${objectURL}')`;
+            return;
+        }
+    } catch (e) {
+        console.warn("Error leyendo caché IndexedDB:", e);
+    }
+
+    const cachedDataUrl = localStorage.getItem(`catalog_img_${msg.id}`);
+    if (cachedDataUrl) {
+        contenedorImagen.style.backgroundImage = `url('${cachedDataUrl}')`;
         return;
     }
 
@@ -382,7 +394,6 @@ async function cargarImagenBuscador(msg) {
         if (buffer) {
             const blob = new Blob([buffer], { type: 'image/jpeg' }); 
             const imageURL = URL.createObjectURL(blob);
-
             const img = new Image();
             img.src = imageURL;
             img.onload = () => {
@@ -394,10 +405,20 @@ async function cargarImagenBuscador(msg) {
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
 
-                const webpDataUrl = canvas.toDataURL('image/webp', 0.95);
-                try { localStorage.setItem(`catalog_img_${msg.id}`, webpDataUrl); } catch(e){}
-
-                contenedorImagen.style.backgroundImage = `url('${webpDataUrl}')`;
+                canvas.toBlob(async (resizedBlob) => {
+                    if (resizedBlob) {
+                        try {
+                            await localforage.setItem(`catalog_img_${msg.id}`, resizedBlob);
+                        } catch (e) {
+                            console.warn("Error guardando imagen en IndexedDB:", e);
+                        }
+                        const finalURL = URL.createObjectURL(resizedBlob);
+                        contenedorImagen.style.backgroundImage = `url('${finalURL}')`;
+                    }
+                    URL.revokeObjectURL(imageURL);
+                }, 'image/webp', 0.8);
+            };
+            img.onerror = () => {
                 URL.revokeObjectURL(imageURL);
             };
         }

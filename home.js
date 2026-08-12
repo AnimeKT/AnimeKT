@@ -1,5 +1,6 @@
 import { Api, TelegramClient } from "telegram";
 import { StringSession } from "telegram/sessions";
+import localforage from "localforage";
 
 // 1. Verificación de seguridad: Si no hay sesión, regresarlo al Login
 const savedSession = localStorage.getItem("telegram_session");
@@ -27,19 +28,27 @@ const btnLogoutNav = document.getElementById("btn-logout-nav");
 // ==========================================
 // LIMPIEZA AUTOMÁTICA DE CACHÉ (CADA 24 HORAS)
 // ==========================================
-const ultimaLimpieza = localStorage.getItem('ultima_limpieza_cache');
-const ahora = new Date().getTime();
+async function limpiarCacheAutomatica() {
+    const ultimaLimpieza = localStorage.getItem('ultima_limpieza_cache');
+    const ahora = new Date().getTime();
 
-// 86400000 milisegundos equivalen exactamente a 24 horas
-if (!ultimaLimpieza || ahora - parseInt(ultimaLimpieza) > 86400000) { 
-    Object.keys(localStorage).forEach(key => {
-        if (key.startsWith('catalog_img_') || key.startsWith('hero_img_') || key.startsWith('thumb_')) {
-            localStorage.removeItem(key);
+    // 86400000 milisegundos = 24 horas
+    if (!ultimaLimpieza || ahora - parseInt(ultimaLimpieza) > 86400000) { 
+        try {
+            const keys = await localforage.keys();
+            for (const key of keys) {
+                if (key.startsWith('catalog_img_') || key.startsWith('hero_img_') || key.startsWith('thumb_')) {
+                    await localforage.removeItem(key);
+                }
+            }
+            localStorage.setItem('ultima_limpieza_cache', ahora.toString());
+            console.log("🧹 Caché de imágenes limpiada automáticamente por el ciclo de 24 horas.");
+        } catch (error) {
+            console.error("Error al limpiar la caché:", error);
         }
-    });
-    localStorage.setItem('ultima_limpieza_cache', ahora.toString());
-    console.log("🧹 Caché de imágenes limpiado automáticamente por el ciclo de 24 horas.");
+    }
 }
+limpiarCacheAutomatica();
 
 // Botón de Cerrar Sesión
 if(btnLogoutNav) {
@@ -116,7 +125,6 @@ if (navSearchInput) {
 async function ejecutarMiniBusqueda(query) {
     if (!miniResultsList || !navSearchResults) return;
 
-    // Usamos el catálogo real cargado en la página para buscar las tarjetas
     const datos = Array.isArray(catalogPhotos) ? catalogPhotos : [];
     const resultados = datos
         .filter(item => {
@@ -125,10 +133,12 @@ async function ejecutarMiniBusqueda(query) {
         })
         .slice(0, 4);
 
-    renderizarMiniResultados(resultados, query);
+    // 👇 Le agregamos await aquí
+    await renderizarMiniResultados(resultados, query);
 }
 
-function renderizarMiniResultados(resultados, query) {
+// 👇 Le agregamos async aquí
+async function renderizarMiniResultados(resultados, query) {
     if (!miniResultsList || !navSearchResults || !seeMoreBtn) return;
 
     miniResultsList.innerHTML = '';
@@ -137,27 +147,39 @@ function renderizarMiniResultados(resultados, query) {
         miniResultsList.innerHTML = '<p style="color:#7b88a1; text-align:center; margin:10px 0;">No se encontraron animes</p>';
         seeMoreBtn.style.display = 'none';
     } else {
-        resultados.forEach(anime => {
+        // 👇 Usamos for...of para poder usar await adentro
+        for (const anime of resultados) {
             const a = document.createElement('a');
             a.className = 'mini-result-item';
-            
-            // 👇 AQUÍ ESTÁ LA CORRECCIÓN 👇
             a.href = `/Datos.html?id=${anime.mensaje.id}`; 
 
-            const cachedImage = localStorage.getItem(`catalog_img_${anime.mensaje.id}`) || '';
-            const imgTag = cachedImage
-                ? `<img src="${cachedImage}" alt="${anime.datos.titulo}" class="mini-result-img">`
-                : `<div class="mini-result-img" style="background:#2c2d3e"></div>`;
+            const imgId = `mini-img-${anime.mensaje.id}`;
+            
+            // 1. REVISAMOS INDEXEDDB PRIMERO
+            const cachedBlob = await localforage.getItem(`catalog_img_${anime.mensaje.id}`);
+            
+            let imgStyle = `background-color: #2c2d3e; background-size: cover; background-position: center;`;
+            
+            // 2. Si es un archivo Blob real, le creamos una URL temporal para mostrarlo
+            if (cachedBlob) {
+                const objectURL = URL.createObjectURL(cachedBlob);
+                imgStyle = `background-image: url('${objectURL}'); background-size: cover; background-position: center;`;
+            }
 
             a.innerHTML = `
-                ${imgTag}
+                <div id="${imgId}" class="mini-result-img" style="${imgStyle}"></div>
                 <div class="mini-result-info">
                     <h4 class="mini-result-title">${anime.datos.titulo}</h4>
                     <p class="mini-result-type">${anime.datos.tipo || 'TV'}</p>
                 </div>
             `;
             miniResultsList.appendChild(a);
-        });
+            
+            // 3. SOLO la mandamos a descargar si NO estaba en la base de datos
+            if (!cachedBlob) {
+                cargarImagenMini(anime.mensaje, imgId);
+            }
+        }
 
         seeMoreBtn.style.display = 'block';
         seeMoreBtn.onclick = () => {
@@ -166,6 +188,52 @@ function renderizarMiniResultados(resultados, query) {
     }
 
     navSearchResults.classList.remove('hidden');
+}
+
+
+async function cargarImagenMini(msg, elementId) {
+    const divImagen = document.getElementById(elementId);
+    if (!divImagen) return;
+
+    try {
+        const buffer = await client.downloadMedia(msg);
+        if (buffer) {
+            const blob = new Blob([buffer], { type: 'image/jpeg' });
+            const imageURL = URL.createObjectURL(blob);
+
+            const img = new Image();
+            img.src = imageURL;
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                // Miniatura ligera de 80px
+                const targetWidth = 80; 
+                const targetHeight = Math.round((img.height * targetWidth) / img.width);
+                canvas.width = targetWidth;
+                canvas.height = targetHeight;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+
+                // ✨ LA MAGIA: Convertimos el canvas a un archivo BLOB en vez de un texto Base64
+                canvas.toBlob(async (resizedBlob) => {
+                    try {
+                        // Lo guardamos en IndexedDB con espacio ilimitado
+                        await localforage.setItem(`catalog_img_${msg.id}`, resizedBlob);
+                    } catch (e) {
+                        console.error("Error guardando en IndexedDB:", e);
+                    }
+                    
+                    // Mostramos la imagen recién procesada
+                    const finalURL = URL.createObjectURL(resizedBlob);
+                    divImagen.style.backgroundImage = `url('${finalURL}')`;
+                    
+                    // Limpiamos la memoria RAM del navegador
+                    URL.revokeObjectURL(imageURL);
+                }, 'image/webp', 0.8);
+            };
+        }
+    } catch (error) {
+        console.error("Error descargando imagen para el mini buscador:", error);
+    }
 }
 
 document.addEventListener('click', (e) => {
@@ -582,12 +650,8 @@ async function cambiarImagenHero(index) {
     isHeroLoading = true;
     currentHeroIndex = index;
 
-    // 1. FRENAR EL RELOJ VIEJO DE INMEDIATO
-    if (autoSlideInterval) {
-        clearInterval(autoSlideInterval);
-    }
+    if (autoSlideInterval) clearInterval(autoSlideInterval);
 
-    // 2. ACTUALIZAR LOS TEXTOS AL INSTANTE (Para que el click se sienta rápido)
     const tituloAnime = document.querySelector('.hero-title-img');
     const metaTagsAnime = document.querySelector('.meta-tags');
     const descripcionAnime = document.querySelector('.hero-description');
@@ -607,10 +671,7 @@ async function cambiarImagenHero(index) {
     actualizarBotonFavHero(heroPhotos[index].id);
     actualizarBotonPlayHero(heroPhotos[index].id);
 
-    // 3. TRUCO DE DISEÑO: Apagamos todas las rayitas temporalmente ("Cargando")
-    document.querySelectorAll('.hero-indicators .indicator').forEach((dot) => {
-        dot.className = 'indicator'; 
-    });
+    document.querySelectorAll('.hero-indicators .indicator').forEach(dot => dot.className = 'indicator');
 
     const layer1 = document.querySelector('.hero-layer.layer-1');
     const layer2 = document.querySelector('.hero-layer.layer-2');
@@ -619,34 +680,26 @@ async function cambiarImagenHero(index) {
     const activeLayer = layer1.classList.contains('active') ? layer1 : layer2;
     const nextLayer = activeLayer === layer1 ? layer2 : layer1;
 
-    // TODO ESTO OCURRE CUANDO LA IMAGEN 4K ESTÁ LISTA
     const ejecutarTransicion = (url) => {
-        
-        // Cambiar la imagen de fondo visualmente
         nextLayer.style.backgroundImage = `url('${url}')`;
         nextLayer.classList.add('active');
         activeLayer.classList.remove('active');
         
-        // 4. ENCENDER LA RAYITA NUEVA (Arranca su animación desde cero milisegundos)
         const currentDot = document.querySelectorAll('.hero-indicators .indicator')[index];
-        if (currentDot) {
-            currentDot.classList.add('active'); 
-        }
+        if (currentDot) currentDot.classList.add('active'); 
 
         isHeroLoading = false;
-
-        // 5. INICIAR EL RELOJ JS (Sincronización perfecta de 5 segundos con la rayita)
         iniciarAutoSlide(); 
     };
 
-    // 1. Buscar en el localStorage (Si está guardada, es instantáneo)
-    const cachedImage = localStorage.getItem(`hero_img_${heroPhotos[index].id}`);
-    if (cachedImage) {
-        ejecutarTransicion(cachedImage);
+    // Buscamos en IndexedDB
+    const cachedBlob = await localforage.getItem(`hero_img_${heroPhotos[index].id}`);
+    if (cachedBlob) {
+        const objectURL = URL.createObjectURL(cachedBlob);
+        ejecutarTransicion(objectURL);
         return;
     }
 
-    // 2. Si no está, lo descargamos (Aquí es donde las rayitas grises evitan el desfase)
     try {
         console.log(`⏳ Descargando portada ${index + 1} de Telegram...`);
         const buffer = await client.downloadMedia(heroPhotos[index]);
@@ -657,12 +710,11 @@ async function cambiarImagenHero(index) {
 
             const img = new Image();
             img.src = imageURL;
-            
             img.onload = () => {
                 const canvas = document.createElement('canvas');
                 let targetWidth = img.width;
                 let targetHeight = img.height;
-                const maxAllowedWidth = 1920; 
+                const maxAllowedWidth = 1280; // Calidad altísima para el Hero
 
                 if (targetWidth > maxAllowedWidth) {
                     targetHeight = Math.round((targetHeight * maxAllowedWidth) / targetWidth);
@@ -671,26 +723,21 @@ async function cambiarImagenHero(index) {
 
                 canvas.width = targetWidth;
                 canvas.height = targetHeight;
-                
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
 
-                // No olvides usar 1.0 para máxima nitidez
-                const webpDataUrl = canvas.toDataURL('image/webp', 1.0); 
-                
-                try {
-                    localStorage.setItem(`hero_img_${heroPhotos[index].id}`, webpDataUrl);
-                } catch (e) {
-                    console.warn("⚠️ El almacenamiento local está lleno, omitiendo caché.");
-                }
-
-                ejecutarTransicion(webpDataUrl);
-                URL.revokeObjectURL(imageURL);
+                canvas.toBlob(async (resizedBlob) => {
+                    try {
+                        await localforage.setItem(`hero_img_${heroPhotos[index].id}`, resizedBlob);
+                    } catch (e) {
+                        console.warn("⚠️ Error guardando el hero.");
+                    }
+                    const finalURL = URL.createObjectURL(resizedBlob);
+                    ejecutarTransicion(finalURL);
+                    URL.revokeObjectURL(imageURL);
+                }, 'image/webp', 0.85);
             };
-
-            img.onerror = () => {
-                isHeroLoading = false;
-            };
+            img.onerror = () => isHeroLoading = false;
         }
     } catch (error) {
         isHeroLoading = false;
@@ -700,8 +747,9 @@ async function cambiarImagenHero(index) {
 // --- 4. PRECARGA SILENCIOSA EN SEGUNDO PLANO ---
 async function precargarYGuardarPortadas() {
     for (let i = 0; i < heroPhotos.length; i++) {
-        // Si ya existe en localStorage, lo saltamos
-        if (localStorage.getItem(`hero_img_${heroPhotos[i].id}`)) continue;
+        // Revisamos si ya está en IndexedDB
+        const existe = await localforage.getItem(`hero_img_${heroPhotos[i].id}`);
+        if (existe) continue;
 
         try {
             const buffer = await client.downloadMedia(heroPhotos[i]);
@@ -712,12 +760,11 @@ async function precargarYGuardarPortadas() {
                 await new Promise((resolve) => {
                     const img = new Image();
                     img.src = imageURL;
-                    
                     img.onload = () => {
                         const canvas = document.createElement('canvas');
                         let targetWidth = img.width;
                         let targetHeight = img.height;
-                        const maxAllowedWidth = 1920; 
+                        const maxAllowedWidth = 1280; 
 
                         if (targetWidth > maxAllowedWidth) {
                             targetHeight = Math.round((targetHeight * maxAllowedWidth) / targetWidth);
@@ -726,24 +773,23 @@ async function precargarYGuardarPortadas() {
 
                         canvas.width = targetWidth;
                         canvas.height = targetHeight;
-                        
                         const ctx = canvas.getContext('2d');
                         ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
 
-                        const webpDataUrl = canvas.toDataURL('image/webp', 0.95);
-                        try {
-                            localStorage.setItem(`hero_img_${heroPhotos[i].id}`, webpDataUrl);
-                        } catch (e) {}
-                        
-                        URL.revokeObjectURL(imageURL);
-                        resolve();
+                        canvas.toBlob(async (resizedBlob) => {
+                            try {
+                                await localforage.setItem(`hero_img_${heroPhotos[i].id}`, resizedBlob);
+                            } catch (e) {}
+                            URL.revokeObjectURL(imageURL);
+                            resolve();
+                        }, 'image/webp', 0.85);
                     };
                     img.onerror = () => resolve();
                 });
             }
         } catch (e) {}
     }
-    console.log("✨ ¡Todas las portadas guardadas en la memoria local del navegador!");
+    console.log("✨ ¡Todas las portadas guardadas en la base de datos sin límites!");
 }
 
 // ==========================================
@@ -861,13 +907,15 @@ async function cargarImagenCatalogo(msg) {
     const divImagen = document.getElementById(`catalog-img-${msg.id}`);
     if (!divImagen) return;
 
-    // Revisamos si ya tenemos la portada vertical guardada en el navegador
-    const cachedImage = localStorage.getItem(`catalog_img_${msg.id}`);
-    if (cachedImage) {
-        divImagen.style.backgroundImage = `url('${cachedImage}')`;
+    // 1. Buscamos en la nueva base de datos ilimitada
+    const cachedBlob = await localforage.getItem(`catalog_img_${msg.id}`);
+    if (cachedBlob) {
+        const objectURL = URL.createObjectURL(cachedBlob);
+        divImagen.style.backgroundImage = `url('${objectURL}')`;
         return;
     }
 
+    // 2. Si no existe, descargamos y optimizamos
     try {
         const buffer = await client.downloadMedia(msg);
         if (buffer) {
@@ -878,8 +926,7 @@ async function cargarImagenCatalogo(msg) {
             img.src = imageURL;
             img.onload = () => {
                 const canvas = document.createElement('canvas');
-                // Reducimos el tamaño a 300px de ancho porque es una tarjeta pequeña
-                // Esto ahorra muchísima memoria y hace que la web cargue rapidísimo
+                // Optimizamos a 300px para el catálogo
                 const targetWidth = 600; 
                 const targetHeight = Math.round((img.height * targetWidth) / img.width);
                 canvas.width = targetWidth;
@@ -887,15 +934,18 @@ async function cargarImagenCatalogo(msg) {
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
 
-                const webpDataUrl = canvas.toDataURL('image/webp', 0.85);
-                try { 
-                    localStorage.setItem(`catalog_img_${msg.id}`, webpDataUrl); 
-                } catch (e) {
-                    console.warn("⚠️ Caché del catálogo lleno.");
-                }
+                // Guardamos el Blob en la base de datos
+                canvas.toBlob(async (resizedBlob) => {
+                    try { 
+                        await localforage.setItem(`catalog_img_${msg.id}`, resizedBlob); 
+                    } catch (e) {
+                        console.warn("Error guardando en caché.");
+                    }
 
-                divImagen.style.backgroundImage = `url('${webpDataUrl}')`;
-                URL.revokeObjectURL(imageURL);
+                    const finalURL = URL.createObjectURL(resizedBlob);
+                    divImagen.style.backgroundImage = `url('${finalURL}')`;
+                    URL.revokeObjectURL(imageURL); // Liberamos la memoria de la imagen original
+                }, 'image/webp', 0.8);
             };
         }
     } catch (error) {

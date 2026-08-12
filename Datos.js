@@ -1,5 +1,6 @@
 import { Api, TelegramClient } from "telegram";
 import { StringSession } from "telegram/sessions";
+import localforage from "localforage";
 
 // ==========================================
 // 1. VERIFICACIÓN DE SESIÓN Y CLIENTE
@@ -95,10 +96,10 @@ async function ejecutarMiniBusqueda(query) {
         const texto = (item.datos.textoBuscable || `${item.datos.titulo} ${item.datos.meta}`).toLowerCase();
         return texto.includes(query);
     }).slice(0, 4);
-    renderizarMiniResultados(resultados, query);
+    await renderizarMiniResultados(resultados, query);
 }
 
-function renderizarMiniResultados(resultados, query) {
+async function renderizarMiniResultados(resultados, query) {
     if (!miniResultsList || !navSearchResults || !seeMoreBtn) return;
     miniResultsList.innerHTML = '';
 
@@ -106,29 +107,74 @@ function renderizarMiniResultados(resultados, query) {
         miniResultsList.innerHTML = '<p style="color:#7b88a1; text-align:center; margin:10px 0;">No se encontraron animes</p>';
         seeMoreBtn.style.display = 'none';
     } else {
-        resultados.forEach(anime => {
+        for (const anime of resultados) {
             const a = document.createElement('a');
             a.className = 'mini-result-item';
-            a.href = `/Datos.html?id=${anime.mensaje.id}`; 
+            a.href = `/Datos.html?id=${anime.mensaje.id}`;
 
-            const cachedImage = localStorage.getItem(`catalog_img_${anime.mensaje.id}`) || '';
-            const imgTag = cachedImage
-                ? `<img src="${cachedImage}" alt="${anime.datos.titulo}" class="mini-result-img">`
-                : `<div class="mini-result-img" style="background:#2c2d3e"></div>`;
+            const imgId = `mini-img-${anime.mensaje.id}`;
+            const cachedBlob = await localforage.getItem(`catalog_img_${anime.mensaje.id}`);
+            let imgStyle = `background-color: #2c2d3e; background-size: cover; background-position: center;`;
+
+            if (cachedBlob) {
+                const objectURL = URL.createObjectURL(cachedBlob);
+                imgStyle = `background-image: url('${objectURL}'); background-size: cover; background-position: center;`;
+            }
 
             a.innerHTML = `
-                ${imgTag}
+                <div id="${imgId}" class="mini-result-img" style="${imgStyle}"></div>
                 <div class="mini-result-info">
                     <h4 class="mini-result-title">${anime.datos.titulo}</h4>
                     <p class="mini-result-type">${anime.datos.tipo || 'TV'}</p>
                 </div>
             `;
             miniResultsList.appendChild(a);
-        });
+
+            if (!cachedBlob) {
+                cargarImagenMini(anime.mensaje, imgId);
+            }
+        }
         seeMoreBtn.style.display = 'block';
         seeMoreBtn.onclick = () => { window.location.href = `/buscador.html?q=${encodeURIComponent(navSearchInput.value.trim())}`; };
     }
     navSearchResults.classList.remove('hidden');
+}
+
+async function cargarImagenMini(msg, elementId) {
+    const divImagen = document.getElementById(elementId);
+    if (!divImagen) return;
+
+    try {
+        const buffer = await client.downloadMedia(msg);
+        if (buffer) {
+            const blob = new Blob([buffer], { type: 'image/jpeg' });
+            const imageURL = URL.createObjectURL(blob);
+            const img = new Image();
+            img.src = imageURL;
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const targetWidth = 80;
+                const targetHeight = Math.round((img.height * targetWidth) / img.width);
+                canvas.width = targetWidth;
+                canvas.height = targetHeight;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+
+                canvas.toBlob(async (resizedBlob) => {
+                    try {
+                        await localforage.setItem(`catalog_img_${msg.id}`, resizedBlob);
+                    } catch (e) {
+                        console.error("Error guardando en IndexedDB:", e);
+                    }
+                    const finalURL = URL.createObjectURL(resizedBlob);
+                    divImagen.style.backgroundImage = `url('${finalURL}')`;
+                    URL.revokeObjectURL(imageURL);
+                }, 'image/webp', 0.8);
+            };
+        }
+    } catch (error) {
+        console.error("Error descargando imagen para el mini buscador:", error);
+    }
 }
 
 async function cargarPerfilUsuario() {

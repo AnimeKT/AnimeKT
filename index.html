@@ -21,12 +21,12 @@
 
         <h2 class="titulo-principal">AnimeKaergsty</h2>
 
-        <form id="formulario-conexion">
+        <form id="formulario-conexion" autocomplete="off" novalidate>
             <div id="api-credentials-step">
                 <div class="grupo-input">
                     <label>API ID:</label>
                     <div class="input-contenedor">
-                        <input type="text" id="user-api-id" placeholder="Ej: 1234567" required>
+                        <input type="text" id="user-api-id" name="user-api-id" autocomplete="off" autocapitalize="off" placeholder="Ej: 1234567" required>
                         <div class="portal-spark"></div>
                     </div>
                 </div>
@@ -34,7 +34,7 @@
                 <div class="grupo-input">
                     <label>API HASH:</label>
                     <div class="input-contenedor">
-                        <input type="text" id="user-api-hash" placeholder="Ej: 274305..." required>
+                        <input type="text" id="user-api-hash" name="user-api-hash" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Ej: 274305..." required>
                         <div class="portal-spark"></div>
                     </div>
                 </div>
@@ -56,7 +56,7 @@
                 <div id="flow-phone">
                     <div id="step-phone">
                         <div class="input-contenedor">
-                            <input type="text" id="phone-input" placeholder="Número (Ej: +34600000000)" />
+                            <input type="text" id="phone-input" name="phone-input" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Número (Ej: +34600000000)" />
                             <div class="portal-spark"></div>
                         </div>
                         <button id="btn-send-code" type="button" class="btn-morado">Enviar Código</button>
@@ -64,7 +64,7 @@
 
                     <div id="step-code" class="hidden">
                         <div class="input-contenedor">
-                            <input type="text" id="code-input" placeholder="Código de Telegram" />
+                            <input type="text" id="code-input" name="code-input" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Código de Telegram" />
                             <div class="portal-spark"></div>
                         </div>
                         <button id="btn-verify-code" type="button" class="btn-morado">Verificar</button>
