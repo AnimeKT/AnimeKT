@@ -26,6 +26,16 @@ const videoTitle = document.getElementById("video-title");
 const btnLogoutNav = document.getElementById("btn-logout-nav");
 
 // ==========================================
+// FUNCIÓN AUXILIAR: NORMALIZAR TEXTO
+// ==========================================
+// 👇 NUEVA: Normaliza texto eliminando acentos y caracteres especiales
+// Ej: "Ōsama" → "osama", "café" → "cafe"
+function normalizar(texto) {
+    if (!texto) return "";
+    return texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+// ==========================================
 // LIMPIEZA AUTOMÁTICA DE CACHÉ (CADA 24 HORAS)
 // ==========================================
 async function limpiarCacheAutomatica() {
@@ -99,7 +109,8 @@ if (navSearchInput) {
     let debounceTimer;
 
     navSearchInput.addEventListener('input', (e) => {
-        const query = e.target.value.trim().toLowerCase();
+        // 👇 NUEVO: Normalizamos lo que escribe el usuario para quitar ō, ū, acentos, etc.
+        const query = normalizar(e.target.value.trim().toLowerCase());
         clearTimeout(debounceTimer);
 
         if (query.length < 2) {
@@ -128,7 +139,8 @@ async function ejecutarMiniBusqueda(query) {
     const datos = Array.isArray(catalogPhotos) ? catalogPhotos : [];
     const resultados = datos
         .filter(item => {
-            const texto = (item.datos.textoBuscable || `${item.datos.titulo} ${item.datos.meta}`).toLowerCase();
+            // 👇 NUEVO: Aplicamos la normalización también aquí por seguridad
+            const texto = normalizar(item.datos.textoBuscable || `${item.datos.titulo} ${item.datos.meta}`.toLowerCase());
             return texto.includes(query);
         })
         .slice(0, 4);
@@ -400,8 +412,11 @@ function extraerDatosAnime(texto) {
     const meta = `• ${audio} • ${generosTexto} • ${año}`;
     const sinopsis = extraerRegex(/Sinopsis:\s*([\s\S]+)/i) || "No hay sinopsis disponible.";
 
-    const textoBuscable = [tituloBruto, titulo, titulosAlternativos, estado, audio, estudio, autor, generosTexto, dia, tipo, año, sinopsis]
+    const textoBuscableOriginal = [tituloBruto, titulo, titulosAlternativos, estado, audio, estudio, autor, generosTexto, dia, tipo, año, sinopsis]
         .filter(Boolean).join(" ").toLowerCase();
+        
+    // 👇 NUEVO: Guardamos el texto ya normalizado
+    const textoBuscable = normalizar(textoBuscableOriginal);
 
     return { 
         titulo, titulosAlternativos, meta, sinopsis, estado, tipo, año, 

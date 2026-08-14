@@ -21,6 +21,16 @@ let client = new TelegramClient(stringSession, parseInt(apiId), apiHash, {
 });
 
 // ==========================================
+// FUNCIÓN AUXILIAR: NORMALIZAR TEXTO
+// ==========================================
+// 👇 NUEVA: Normaliza texto eliminando acentos y caracteres especiales
+// Ej: "Ōsama" → "osama", "café" → "cafe"
+function normalizar(texto) {
+    if (!texto) return "";
+    return texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+// ==========================================
 // 2. LÓGICA DE LA BARRA DE NAVEGACIÓN
 // ==========================================
 const btnLogoutNav = document.getElementById("btn-logout-nav");
@@ -86,10 +96,6 @@ let filtrosActuales = {
     texto: "", letra: "", tipo: "", genero: "", año: "", estado: "", orden: "default"
 };
 
-function normalizar(texto) {
-    return texto ? texto.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
-}
-
 // ==========================================
 // FUNCIÓN MAESTRA UNIVERSAL DE EXTRACCIÓN
 // ==========================================
@@ -140,8 +146,11 @@ function extraerDatosAnime(texto) {
     const meta = `• ${audio} • ${generosTexto} • ${año}`;
     const sinopsis = extraerRegex(/Sinopsis:\s*([\s\S]+)/i) || "No hay sinopsis disponible.";
 
-    const textoBuscable = [tituloBruto, titulo, titulosAlternativos, estado, audio, estudio, autor, generosTexto, dia, tipo, año, sinopsis]
+    const textoBuscableOriginal = [tituloBruto, titulo, titulosAlternativos, estado, audio, estudio, autor, generosTexto, dia, tipo, año, sinopsis]
         .filter(Boolean).join(" ").toLowerCase();
+        
+    // 👇 NUEVO: Guardamos el texto ya normalizado
+    const textoBuscable = normalizar(textoBuscableOriginal);
 
     return { 
         titulo, titulosAlternativos, meta, sinopsis, estado, tipo, año, 
@@ -226,7 +235,9 @@ function aplicarFiltros() {
         }
 
         if (filtrosActuales.letra) {
-            const inicial = datos.titulo.charAt(0).toUpperCase();
+            // 👇 NUEVO: Usamos normalizar para limpiar la primera letra antes de convertirla a mayúscula
+            const inicial = normalizar(datos.titulo.charAt(0)).toUpperCase();
+            
             if (filtrosActuales.letra === '#') {
                 if (/[A-Z]/.test(inicial)) return false; 
             } else {

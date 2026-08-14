@@ -21,6 +21,16 @@ let client = new TelegramClient(stringSession, parseInt(apiId), apiHash, {
 });
 
 // ==========================================
+// FUNCIÓN AUXILIAR: NORMALIZAR TEXTO
+// ==========================================
+// 👇 NUEVA: Normaliza texto eliminando acentos y caracteres especiales
+// Ej: "Ōsama" → "osama", "café" → "cafe"
+function normalizar(texto) {
+    if (!texto) return "";
+    return texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+// ==========================================
 // 2. LÓGICA DE LA BARRA DE NAVEGACIÓN Y MINI BUSCADOR
 // ==========================================
 const btnLogoutNav = document.getElementById("btn-logout-nav");
@@ -60,7 +70,8 @@ if (navSearchInput) {
     let debounceTimer;
 
     navSearchInput.addEventListener('input', (e) => {
-        const query = e.target.value.trim().toLowerCase();
+        // 👇 NUEVO: Normalizamos lo que escribe el usuario para quitar ō, ū, acentos, etc.
+        const query = normalizar(e.target.value.trim().toLowerCase());
         clearTimeout(debounceTimer);
 
         if (query.length < 2) {
@@ -93,7 +104,8 @@ document.addEventListener('click', (e) => {
 async function ejecutarMiniBusqueda(query) {
     if (!miniResultsList || !navSearchResults) return;
     const resultados = catalogoParaBuscador.filter(item => {
-        const texto = (item.datos.textoBuscable || `${item.datos.titulo} ${item.datos.meta}`).toLowerCase();
+        // 👇 NUEVO: Aplicamos la normalización también aquí por seguridad
+        const texto = normalizar(item.datos.textoBuscable || `${item.datos.titulo} ${item.datos.meta}`.toLowerCase());
         return texto.includes(query);
     }).slice(0, 4);
     await renderizarMiniResultados(resultados, query);
