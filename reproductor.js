@@ -102,6 +102,9 @@ function iniciarReproductor() {
     // 2. BARRA DE PROGRESO (Slider superior)
     // ==========================================
     let isDraggingProgress = false;
+    let wasPausedBeforeDrag = false;
+
+    progressSlider.step = "any"; // Mantiene la precisión milimétrica
 
     video.addEventListener("timeupdate", () => {
         if (!isDraggingProgress && video.duration) {
@@ -116,21 +119,32 @@ function iniciarReproductor() {
         timeDuration.textContent = formatTime(video.duration);
     });
 
+    // NATIVO: Al empezar a arrastrar o mover la barra (Se encarga del arrastre global automáticamente)
     progressSlider.addEventListener("input", (e) => {
-        isDraggingProgress = true;
-        const percent = e.target.value;
+        if (!isDraggingProgress) {
+            isDraggingProgress = true;
+            wasPausedBeforeDrag = video.paused;
+            video.pause(); // Pausar para que no tartamudee al arrastrar rápido
+        }
+        
+        mostrarControles(); // Obliga a que los controles se mantengan encendidos
+        
+        const percent = parseFloat(e.target.value);
         progressSlider.style.background = `linear-gradient(to right, var(--primary-color) ${percent}%, rgba(255, 255, 255, 0.3) ${percent}%)`;
+        
         if (video.duration) {
-            timeCurrent.textContent = formatTime((percent / 100) * video.duration);
+            const tiempoReal = (percent / 100) * video.duration;
+            video.currentTime = tiempoReal; // Mueve el video en tiempo real
+            timeCurrent.textContent = formatTime(tiempoReal);
         }
     });
 
-    progressSlider.addEventListener("change", (e) => {
-        if (video.duration) {
-            const percent = e.target.value;
-            video.currentTime = (percent / 100) * video.duration;
-        }
+    // NATIVO: Al soltar el clic
+    progressSlider.addEventListener("change", () => {
         isDraggingProgress = false;
+        if (!wasPausedBeforeDrag) {
+            video.play(); // Reanuda si estaba reproduciéndose antes de agarrar la bolita
+        }
     });
 
     // ==========================================
@@ -320,6 +334,8 @@ function iniciarReproductor() {
     let controlesTimeout;
 
     function ocultarControles() {
+        if (isDraggingProgress) return; // 👈 LA CLAVE: Si estás agarrando la bolita, detiene el ocultamiento.
+
         customControls.style.opacity = '0';
         customControls.classList.remove('active');
         if (centerControls) centerControls.classList.remove('active');
@@ -402,6 +418,8 @@ function iniciarReproductor() {
         videoWrapper.addEventListener('mousemove', mostrarControles);
         
         videoWrapper.addEventListener('mouseleave', () => {
+            if (isDraggingProgress) return; // 👈 LA CLAVE 2: No se oculta si sacas el ratón del video por estar arrastrando.
+
             clearTimeout(controlesTimeout);
             videoWrapper.style.cursor = 'default';
             if (!video.paused) {
