@@ -245,12 +245,16 @@ function extraerDatosAnime(texto) {
         titulo: "Título Desconocido", titulosAlternativos: "", meta: "", sinopsis: "", estado: "", tipo: "TV", año: "", textoBuscable: "", topicsSub: [], topicsDub: []
     };
 
+    // 👇 1. Extraemos todo el texto completo del título sin cortarlo
     const tituloMatch = texto.match(/Título:\s*(.+)/i);
-    const titulo = tituloMatch ? tituloMatch[1].split('|')[0].trim() : "Título Desconocido";
+    const tituloBruto = tituloMatch ? tituloMatch[1].trim() : "Título Desconocido";
+    
+    // 👇 2. Separamos solo el primer nombre para mostrarlo en el reproductor
+    const titulo = tituloBruto.split('|')[0].trim();
 
     const audioMatch = texto.match(/Audio:\s*(.+)/i);
     const audio = audioMatch ? audioMatch[1].trim() : "Subtitulado";
-    const generosMatch = texto.match(/Géneros:\s*(.+)/i);
+    const generosMatch = texto.match(/G[ée]neros:\s*(.+)/i);
     const generos = generosMatch ? generosMatch[1].trim() : "Desconocido";
     const añoMatch = texto.match(/A[ñn]o\s*:\s*(\d{4})/i) || texto.match(/\b(19\d{2}|20\d{2})\b/);
     const año = añoMatch ? (añoMatch[1] || añoMatch[0]).trim() : "";
@@ -273,8 +277,8 @@ function extraerDatosAnime(texto) {
 
     const meta = `• ${audio} • ${generos} • ${año}`;
     
-    // 👇 NUEVO: Normalizamos el textoBuscable para búsquedas inteligentes
-    const textoBuscableOriginal = [titulo, meta, año].join(' ').toLowerCase();
+    // 👇 3. MAGIA AQUÍ: Usamos "tituloBruto" (que tiene todos los nombres) en lugar de "titulo"
+    const textoBuscableOriginal = [tituloBruto, meta, año].join(' ').toLowerCase();
     const textoBuscable = normalizar(textoBuscableOriginal);
 
     return { titulo, meta, textoBuscable, topicsSub, topicsDub };
