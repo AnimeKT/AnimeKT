@@ -1,0 +1,186 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+  background: #0d0e14;
+}
+
+html {
+  min-height: 100%;
+  background: #0d0e14;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  background: #0d0e14;
+  color: #f9fafb;
+}
+
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(168 85 247 / 55%) rgb(255 255 255 / 5%);
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  border-radius: 9999px;
+  background: rgb(255 255 255 / 5%);
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  border-radius: 9999px;
+  background: rgb(168 85 247 / 55%);
+}
+
+button,
+input {
+  font: inherit;
+}
+
+.video-wrapper {
+  aspect-ratio: 16 / 9;
+  min-height: 0;
+  touch-action: manipulation;
+}
+
+.video-element {
+  display: block;
+  object-fit: contain;
+  touch-action: manipulation;
+}
+
+.custom-controls {
+  background: linear-gradient(transparent, rgb(0 0 0 / 92%));
+}
+
+.control-btn {
+  display: inline-flex;
+  min-width: 30px;
+  min-height: 34px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: white;
+  cursor: pointer;
+  transition: color 160ms ease, transform 160ms ease;
+}
+
+.control-btn:hover {
+  color: #c084fc;
+  transform: scale(1.08);
+}
+
+.control-btn:disabled,
+.player-center-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.progress-slider,
+.volume-slider {
+  height: 4px;
+  appearance: none;
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.progress-slider:hover {
+  height: 7px;
+}
+
+.time-tooltip {
+  pointer-events: none;
+}
+
+.progress-slider::-webkit-slider-thumb,
+.volume-slider::-webkit-slider-thumb {
+  width: 12px;
+  height: 12px;
+  appearance: none;
+  border: 0;
+  border-radius: 50%;
+  background: white;
+}
+
+.progress-slider::-moz-range-thumb,
+.volume-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: 0;
+  border-radius: 50%;
+  background: white;
+}
+
+.volume-container:hover .volume-slider,
+.volume-container:focus-within .volume-slider {
+  width: 70px;
+  opacity: 1;
+}
+
+.player-center-button {
+  display: inline-flex;
+  width: 50px;
+  height: 50px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: rgb(0 0 0 / 55%);
+  color: white;
+  cursor: pointer;
+  transition: background 160ms ease, transform 160ms ease, opacity 200ms ease;
+}
+
+.player-center-button:hover {
+  background: rgb(168 85 247 / 85%);
+}
+
+.center-controls-overlay {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 200ms ease;
+}
+
+.controls-visible .center-controls-overlay,
+.controls-visible:hover .center-controls-overlay {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.episode-card.active-episode .episode-title {
+  color: #c084fc;
+}
+
+@keyframes hero-indicator-progress {
+  from {
+    transform: scaleX(0);
+  }
+
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@media (max-width: 768px) {
+  .video-wrapper {
+    aspect-ratio: 16 / 9;
+    min-height: 0;
+  }
+
+  .volume-container {
+    display: none;
+  }
+
+  .episode-title {
+    text-align: center;
+    font-size: 0.8rem;
+  }
+}
