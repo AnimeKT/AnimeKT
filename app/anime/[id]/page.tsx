@@ -309,7 +309,7 @@ export default function AnimeCoverPage() {
         )}
       </section>
 
-      <CommentSection />
+      {anime && <CommentSection animeId={anime.id} title={anime.title} />}
     </main>
   );
 }

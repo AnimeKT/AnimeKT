@@ -562,7 +562,13 @@ export default function AnimePlayerPage() {
           </div>
         </>
       )}
-      <CommentSection />
+      {anime && (
+        <CommentSection
+          animeId={animeId}
+          episodeId={selectedEpisode?.message.id ?? requestedEpisodeId}
+          title={title}
+        />
+      )}
     </main>
   );
 }

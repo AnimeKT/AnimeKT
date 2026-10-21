@@ -4,6 +4,19 @@ import { TelegramClient } from 'telegram/client/TelegramClient';
 import { StringSession } from 'telegram/sessions/StringSession';
 import { Api } from 'telegram/tl';
 import {
+  deleteTelegramMessages,
+  editTelegramComment,
+  fetchComments as fetchTelegramComments,
+  findCommentThread as findTelegramCommentThread,
+  getTelegramCommentsGroup,
+  getProfilePic as getTelegramProfilePic,
+  sendTelegramComment,
+} from '@/lib/telegramComments';
+import type {
+  TelegramCommentDraftBlock,
+  TelegramCommentsPage,
+} from '@/lib/telegramComments';
+import {
   createContext,
   useCallback,
   useContext,
@@ -15,14 +28,37 @@ import {
 import type { ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 
+type TelegramUser = {
+  id: string;
+  firstName: string;
+  username: string | null;
+};
+
 type TelegramContextValue = {
   client: TelegramClient | null;
   isAuthenticated: boolean;
+  currentUserId: string | null;
+  user: TelegramUser | null;
   isLoading: boolean;
   profilePhotoUrl: string | null;
   initClient: (apiId: string, apiHash: string) => Promise<boolean>;
   sendCode: (phoneNumber: string) => Promise<boolean>;
   verifyCode: (code: string) => Promise<void>;
+  logout: () => Promise<void>;
+  sendComment: (blocks: TelegramCommentDraftBlock[], threadId: number, replyToMessageId?: number) => Promise<void>;
+  deleteCommentMessages: (messageIds: number[]) => Promise<void>;
+  editComment: (
+    messageId: number,
+    blocks: TelegramCommentDraftBlock[],
+    messageIds: string[],
+    mediaMessageIds: string[],
+    threadId: number,
+    replyToMessageId?: number,
+    contentGroupId?: string,
+  ) => Promise<void>;
+  getProfilePic: (userId: string) => Promise<string | null>;
+  fetchComments: (threadId: number, offsetId?: number) => Promise<TelegramCommentsPage>;
+  findCommentThread: (hashtag: string) => Promise<number | null>;
 };
 
 const TelegramContext = createContext<TelegramContextValue | undefined>(undefined);
@@ -44,6 +80,8 @@ export function TelegramProvider({ children }: Readonly<{ children: ReactNode }>
   const router = useRouter();
   const [client, setClient] = useState<TelegramClient | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [user, setUser] = useState<TelegramUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null);
   const clientRef = useRef<TelegramClient | null>(null);
@@ -64,6 +102,8 @@ export function TelegramProvider({ children }: Readonly<{ children: ReactNode }>
     phoneCodeHashRef.current = '';
     setClient(null);
     setIsAuthenticated(false);
+    setCurrentUserId(null);
+    setUser(null);
 
     if (previousClient) {
       void previousClient.disconnect().catch((error: unknown) => {
@@ -83,6 +123,9 @@ export function TelegramProvider({ children }: Readonly<{ children: ReactNode }>
     }
 
     setIsLoading(true);
+    setIsAuthenticated(false);
+    setCurrentUserId(null);
+    setUser(null);
     try {
       const previousClient = clientRef.current;
       if (previousClient) {
@@ -111,8 +154,19 @@ export function TelegramProvider({ children }: Readonly<{ children: ReactNode }>
       const authorized = await nextClient.checkAuthorization();
 
       setClient(nextClient);
+      if (authorized) {
+        const currentUser = await nextClient.getMe();
+        setCurrentUserId(currentUser.id.toString());
+        setUser({
+          id: currentUser.id.toString(),
+          firstName: currentUser.firstName ?? '',
+          username: currentUser.username ?? null,
+        });
+      } else {
+        setCurrentUserId(null);
+        setUser(null);
+      }
       setIsAuthenticated(authorized);
-      if (authorized) router.push('/home');
       return authorized;
     } catch (error) {
       handleAuthError(error);
@@ -176,6 +230,13 @@ export function TelegramProvider({ children }: Readonly<{ children: ReactNode }>
       localStorage.setItem(API_HASH_KEY, credentials.apiHash);
       localStorage.setItem(SESSION_KEY, session);
 
+      const currentUser = await activeClient.getMe();
+      setCurrentUserId(currentUser.id.toString());
+      setUser({
+        id: currentUser.id.toString(),
+        firstName: currentUser.firstName ?? '',
+        username: currentUser.username ?? null,
+      });
       setIsAuthenticated(true);
       router.push('/home');
     } catch (error) {
@@ -185,6 +246,100 @@ export function TelegramProvider({ children }: Readonly<{ children: ReactNode }>
       setIsLoading(false);
     }
   }, [handleAuthError, router]);
+
+  const logout = useCallback(async () => {
+    const previousClient = clientRef.current;
+    clientRef.current = null;
+    credentialsRef.current = null;
+    phoneNumberRef.current = '';
+    phoneCodeHashRef.current = '';
+    localStorage.removeItem(SESSION_KEY);
+    localStorage.removeItem(API_ID_KEY);
+    localStorage.removeItem(API_HASH_KEY);
+    setClient(null);
+    setIsAuthenticated(false);
+    setCurrentUserId(null);
+    setUser(null);
+
+    if (previousClient) {
+      try {
+        await previousClient.disconnect();
+      } catch (error) {
+        console.error('No se pudo desconectar limpiamente la sesión de Telegram.', error);
+      }
+    }
+
+    router.push('/');
+  }, [router]);
+
+  const sendComment = useCallback(async (
+    blocks: TelegramCommentDraftBlock[],
+    threadId: number,
+    replyToMessageId?: number,
+  ) => {
+    const activeClient = clientRef.current;
+    if (!activeClient || !isAuthenticated) {
+      throw new Error('Conecta una sesión autenticada de Telegram antes de comentar.');
+    }
+
+    return sendTelegramComment(activeClient, blocks, threadId, replyToMessageId);
+  }, [isAuthenticated]);
+
+  const editComment = useCallback(async (
+    messageId: number,
+    blocks: TelegramCommentDraftBlock[],
+    messageIds: string[],
+    mediaMessageIds: string[],
+    threadId: number,
+    replyToMessageId?: number,
+    contentGroupId?: string,
+  ) => {
+    const activeClient = clientRef.current;
+    if (!activeClient || !isAuthenticated) {
+      throw new Error('Conecta una sesión autenticada de Telegram para editar comentarios.');
+    }
+    return editTelegramComment(
+      activeClient,
+      messageId,
+      blocks,
+      messageIds,
+      mediaMessageIds,
+      threadId,
+      replyToMessageId,
+      contentGroupId,
+    );
+  }, [isAuthenticated]);
+
+  const deleteCommentMessages = useCallback(async (messageIds: number[]) => {
+    const activeClient = clientRef.current;
+    if (!activeClient || !isAuthenticated) {
+      throw new Error('Conecta una sesión autenticada de Telegram para eliminar comentarios.');
+    }
+    const group = await getTelegramCommentsGroup(activeClient);
+    await deleteTelegramMessages(activeClient, group, messageIds);
+  }, [isAuthenticated]);
+
+  const getProfilePic = useCallback(async (userId: string) => {
+    const activeClient = clientRef.current;
+    if (!activeClient || !isAuthenticated) return null;
+    return getTelegramProfilePic(activeClient, userId);
+  }, [isAuthenticated]);
+
+  const fetchCommentsForThread = useCallback(async (threadId: number, offsetId = 0) => {
+    const activeClient = clientRef.current;
+    if (!activeClient || !isAuthenticated) {
+      throw new Error('Conecta una sesión autenticada de Telegram para ver los comentarios.');
+    }
+    return fetchTelegramComments(activeClient, threadId, offsetId);
+  }, [isAuthenticated]);
+
+  const findCommentThread = useCallback(async (hashtag: string) => {
+    const activeClient = clientRef.current;
+    if (!activeClient || !isAuthenticated) {
+      throw new Error('Conecta una sesión autenticada de Telegram para buscar el hilo.');
+    }
+    return findTelegramCommentThread(activeClient, hashtag);
+  }, [isAuthenticated]);
 
   useEffect(() => {
     if (restoreStarted.current) return;
@@ -238,8 +393,25 @@ export function TelegramProvider({ children }: Readonly<{ children: ReactNode }>
   }, [client, isAuthenticated]);
 
   const value = useMemo(
-    () => ({ client, isAuthenticated, isLoading, profilePhotoUrl, initClient, sendCode, verifyCode }),
-    [client, isAuthenticated, isLoading, profilePhotoUrl, initClient, sendCode, verifyCode],
+    () => ({
+      client,
+      isAuthenticated,
+      currentUserId,
+      user,
+      isLoading,
+      profilePhotoUrl,
+      initClient,
+      sendCode,
+      verifyCode,
+      logout,
+      sendComment,
+      deleteCommentMessages,
+      editComment,
+      getProfilePic,
+      fetchComments: fetchCommentsForThread,
+      findCommentThread,
+    }),
+    [client, isAuthenticated, currentUserId, user, isLoading, profilePhotoUrl, initClient, sendCode, verifyCode, logout, sendComment, deleteCommentMessages, editComment, getProfilePic, fetchCommentsForThread, findCommentThread],
   );
 
   return <TelegramContext.Provider value={value}>{children}</TelegramContext.Provider>;

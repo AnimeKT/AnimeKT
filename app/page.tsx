@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { useTelegram } from '@/context/TelegramContext';
@@ -27,6 +28,7 @@ function isApiCredentialsError(error: unknown) {
 
 export default function LoginPage() {
   const { isLoading, initClient, sendCode, verifyCode } = useTelegram();
+  const router = useRouter();
   const [step, setStep] = useState<LoginStep>('credentials');
   const [apiId, setApiId] = useState('');
   const [apiHash, setApiHash] = useState('');
@@ -52,7 +54,8 @@ export default function LoginPage() {
 
     try {
       const alreadyAuthenticated = await initClient(normalizedApiId, normalizedApiHash);
-      if (!alreadyAuthenticated) setStep('phone');
+      if (alreadyAuthenticated) router.push('/home');
+      else setStep('phone');
     } catch (error) {
       setErrorMessage(getErrorMessage(error));
     }

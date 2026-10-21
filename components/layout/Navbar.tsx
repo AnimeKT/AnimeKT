@@ -92,7 +92,8 @@ export default function Navbar({ searchItems = [], userName = 'Usuario' }: Navba
   const [profileOpen, setProfileOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const { animes } = useSharedAnimeData();
-  const { profilePhotoUrl } = useTelegram();
+  const { profilePhotoUrl, user, logout } = useTelegram();
+  const displayedUserName = user?.firstName || user?.username || userName || 'Usuario';
 
   useEffect(() => {
     const updateScrollState = () => setScrolled(window.scrollY > 12);
@@ -288,7 +289,7 @@ export default function Navbar({ searchItems = [], userName = 'Usuario' }: Navba
           <div className="relative">
             <button
               type="button"
-              aria-label={`Abrir menú de perfil de ${userName}`}
+              aria-label={`Abrir menú de perfil de ${displayedUserName}`}
               aria-expanded={profileOpen}
               onClick={() => {
                 setProfileOpen((open) => !open);
@@ -307,17 +308,17 @@ export default function Navbar({ searchItems = [], userName = 'Usuario' }: Navba
                 />
               ) : (
                 <span className="grid h-8 w-8 place-items-center rounded-full bg-primary/25 font-bold text-primary-light">
-                  {userName.trim().charAt(0).toLocaleUpperCase() || 'U'}
+                  {displayedUserName.trim().charAt(0).toLocaleUpperCase() || 'U'}
                 </span>
               )}
-              <span className="hidden max-w-24 truncate sm:block">{userName}</span>
+              <span className="hidden max-w-24 truncate sm:block">{displayedUserName}</span>
               <svg aria-hidden="true" viewBox="0 0 20 20" fill="currentColor" className="hidden h-4 w-4 sm:block">
                 <path d="m5.5 7.5 4.5 4.5 4.5-4.5" />
               </svg>
             </button>
             {profileOpen && (
               <div className="absolute right-0 top-12 z-50 w-48 rounded-xl border border-white/10 bg-[#171820] p-2 shadow-2xl shadow-black/50">
-                <p className="truncate px-3 py-2 text-xs text-gray-400">{userName}</p>
+                <p className="truncate px-3 py-2 text-xs text-gray-400">{displayedUserName}</p>
                 <Link
                   href="/favoritos"
                   onClick={closeMenus}
@@ -325,13 +326,16 @@ export default function Navbar({ searchItems = [], userName = 'Usuario' }: Navba
                 >
                   Mi lista
                 </Link>
-                <Link
-                  href="/"
-                  onClick={closeMenus}
-                  className="block rounded-lg px-3 py-2 text-sm text-gray-200 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-light"
+                <button
+                  type="button"
+                  onClick={() => {
+                    closeMenus();
+                    void logout();
+                  }}
+                  className="block w-full rounded-lg px-3 py-2 text-left text-sm text-gray-200 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-light"
                 >
-                  Cambiar cuenta
-                </Link>
+                  Cerrar sesión
+                </button>
               </div>
             )}
           </div>
