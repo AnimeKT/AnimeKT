@@ -2,11 +2,12 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
-import type { FormEvent } from 'react';
+import { useEffect, useState } from 'react';
+import type { CSSProperties, FormEvent } from 'react';
 import { useTelegram } from '@/context/TelegramContext';
 
 type LoginStep = 'credentials' | 'phone' | 'code';
+type TextObscuredStyle = CSSProperties & { WebkitTextSecurity: 'disc' };
 
 function getErrorMessage(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
@@ -27,7 +28,7 @@ function isApiCredentialsError(error: unknown) {
 }
 
 export default function LoginPage() {
-  const { isLoading, initClient, sendCode, verifyCode } = useTelegram();
+  const { isAuthenticated, isLoading, initClient, sendCode, verifyCode } = useTelegram();
   const router = useRouter();
   const [step, setStep] = useState<LoginStep>('credentials');
   const [apiId, setApiId] = useState('');
@@ -36,6 +37,17 @@ export default function LoginPage() {
   const [code, setCode] = useState('');
   const [codeSentViaApp, setCodeSentViaApp] = useState<boolean | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
+
+  useEffect(() => {
+    if (!isLoading && isAuthenticated) {
+      router.push('/home');
+    }
+  }, [isAuthenticated, isLoading, router]);
+
+  useEffect(() => {
+    const savedPhone = localStorage.getItem('savedPhoneNumber');
+    if (savedPhone) setPhoneNumber(savedPhone);
+  }, []);
 
   const submitCredentials = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -64,6 +76,7 @@ export default function LoginPage() {
   const submitPhone = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setErrorMessage('');
+    localStorage.setItem('savedPhoneNumber', phoneNumber);
     try {
       const sentViaApp = await sendCode(phoneNumber);
       setCodeSentViaApp(sentViaApp);
@@ -95,6 +108,7 @@ export default function LoginPage() {
 
   const inputClassName =
     'h-12 w-full rounded-lg border border-white/10 bg-[#1f2937] px-4 text-white outline-none transition placeholder:text-gray-500 focus:border-primary focus:ring-2 focus:ring-primary/25';
+  const apiHashStyle: TextObscuredStyle = { WebkitTextSecurity: 'disc' };
   const buttonClassName =
     'mt-2 flex h-12 w-full items-center justify-center rounded-lg bg-primary font-semibold text-white transition-colors hover:bg-primary-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-light focus-visible:ring-offset-2 focus-visible:ring-offset-[#151720] disabled:cursor-wait disabled:opacity-60';
 
@@ -125,7 +139,7 @@ export default function LoginPage() {
         )}
 
         {step === 'credentials' && (
-          <form onSubmit={submitCredentials} className="space-y-5">
+          <form onSubmit={submitCredentials} autoComplete="off" className="space-y-5">
             <div>
               <label htmlFor="api-id" className="mb-2 block text-sm font-medium text-gray-200">
                 API ID
@@ -150,8 +164,9 @@ export default function LoginPage() {
               <input
                 id="api-hash"
                 name="apiHash"
-                type="password"
+                type="text"
                 autoComplete="off"
+                style={apiHashStyle}
                 required
                 value={apiHash}
                 onChange={(event) => setApiHash(event.target.value)}
@@ -240,6 +255,40 @@ export default function LoginPage() {
           </form>
         )}
 
+        <div className="mt-6 flex flex-col gap-3">
+          <a
+            href="https://my.telegram.org/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex h-12 items-center justify-center rounded-lg border border-white/10 bg-[#1f2937] px-4 text-sm font-medium text-gray-200 transition-colors hover:border-white/20 hover:bg-[#273449] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-light"
+          >
+            Crear cuenta API
+          </a>
+          <a
+            href="https://t.me/s/KaergstyRegister"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex h-12 items-center justify-center rounded-lg border border-white/10 bg-[#1f2937] px-4 text-sm font-medium text-gray-200 transition-colors hover:border-white/20 hover:bg-[#273449] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-light"
+          >
+            ¿Cómo registrarse?
+          </a>
+          <a
+            href="https://t.me/s/AnimeKaergsty"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex h-12 items-center justify-center gap-2 rounded-lg border border-sky-400/30 bg-sky-500/10 px-4 text-sm font-semibold text-sky-200 transition-colors hover:border-sky-300/50 hover:bg-sky-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300"
+          >
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              className="h-5 w-5"
+            >
+              <path d="M21.7 4.3a1.5 1.5 0 0 0-1.6-.3L3.2 10.6c-1.1.4-1.1 1.1-.2 1.4l4.3 1.3 1.6 5c.2.6.1.8.7.8.5 0 .7-.2 1-.5l2.1-2 4.4 3.2c.8.4 1.4.2 1.6-.8l2.9-13.5c.2-.8-.3-1.2-.9-1.2ZM8 13l9.5-6c.5-.3 1-.1.6.2l-7.8 7-.3 3.2L8 13Z" />
+            </svg>
+            AnimeKaergsty
+          </a>
+        </div>
         <p className="mt-6 text-center text-xs leading-relaxed text-gray-500">
           Las credenciales y la sesión se guardan en el almacenamiento local de este navegador.
         </p>

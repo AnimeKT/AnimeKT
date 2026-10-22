@@ -16,6 +16,7 @@ export type AnimeData = {
   type: string;
   year: string;
   day: string;
+  time?: string | null;
   audio: string;
   studio: string;
   author: string;

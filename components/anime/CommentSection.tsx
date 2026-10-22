@@ -10,10 +10,15 @@ import type {
   TelegramCommentDraftBlock,
 } from '@/lib/telegramComments';
 import { buildCommentThreadHashtag } from '@/lib/commentThread';
-import { getCachedProfilePicUrl } from '@/lib/telegramComments';
+import { getCachedProfilePicUrl, sendTelegramReaction } from '@/lib/telegramComments';
 
 type Comment = TelegramComment;
 type CommentSortOption = 'recientes' | 'antiguos' | 'populares' | 'respuestas';
+type ReactionData = {
+  status: 'like' | 'dislike' | null;
+  likes: number;
+  dislikes: number;
+};
 
 const commentSortLabels: Record<CommentSortOption, string> = {
   recientes: 'Más recientes',
@@ -167,6 +172,11 @@ function isCachedComment(value: unknown): value is Comment {
     comment.username !== comment.userId &&
     !/^-?\d+$/.test(comment.username) &&
     typeof comment.likes === 'number' &&
+    (comment.dislikes === undefined || typeof comment.dislikes === 'number') &&
+    (comment.userReaction === undefined ||
+      comment.userReaction === null ||
+      comment.userReaction === 'like' ||
+      comment.userReaction === 'dislike') &&
     Array.isArray(comment.replies) &&
     comment.replies.every(isCachedComment);
 }
@@ -174,6 +184,7 @@ function isCachedComment(value: unknown): value is Comment {
 function withoutCachedMediaUrls(comments: Comment[]): Comment[] {
   return comments.map((comment) => ({
     ...comment,
+    dislikes: comment.dislikes ?? 0,
     mediaUrls: [],
     contentBlocks: undefined,
     messageIds: comment.messageIds ?? [comment.id],
@@ -343,6 +354,7 @@ function CommentItem({
   comment,
   onSubmitReply,
   onEdit,
+  onSendReaction,
   onRequestDelete,
   onExternalLink,
   currentUserId,
@@ -350,6 +362,7 @@ function CommentItem({
   comment: Comment;
   onSubmitReply: (blocks: TelegramCommentDraftBlock[], replyToMessageId: string) => Promise<void>;
   onEdit: (comment: Comment, blocks: TelegramCommentDraftBlock[]) => Promise<void>;
+  onSendReaction: (messageId: string, emoji: '👍' | '👎' | null) => Promise<void>;
   onRequestDelete: (commentId: string) => void;
   onExternalLink: (url: string) => void;
   currentUserId: string | null;
@@ -364,16 +377,34 @@ function CommentItem({
   const [isReplying, setIsReplying] = useState(false);
   const [replyError, setReplyError] = useState('');
   const [isSendingReply, setIsSendingReply] = useState(false);
-  const [likes, setLikes] = useState(comment.likes);
-  const [dislikes, setDislikes] = useState(0);
-  const [hasLiked, setHasLiked] = useState(false);
-  const [hasDisliked, setHasDisliked] = useState(false);
+  const initialUserReaction: 'like' | 'dislike' | null = comment.userReaction ?? null;
+  const initialReactionData: ReactionData = {
+    status: initialUserReaction || null,
+    likes: comment.likes ?? 0,
+    dislikes: comment.dislikes ?? 0,
+  };
+  const [reactionData, setReactionData] = useState(initialReactionData);
+  const reactionDataRef = useRef(reactionData);
+  const hasInteracted = useRef(false);
+  const reactionQueueRef = useRef(Promise.resolve());
+  const [reactionError, setReactionError] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [editError, setEditError] = useState('');
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [expandedImage, setExpandedImage] = useState<string | null>(null);
   const [revealedSpoilers, setRevealedSpoilers] = useState<Set<string>>(() => new Set());
   const [isContentExpanded, setIsContentExpanded] = useState(false);
+
+  useEffect(() => {
+    if (hasInteracted.current) return;
+    const nextData: ReactionData = {
+      status: initialUserReaction,
+      likes: comment.likes ?? 0,
+      dislikes: comment.dislikes ?? 0,
+    };
+    reactionDataRef.current = nextData;
+    setReactionData(nextData);
+  }, [initialUserReaction, comment.dislikes, comment.likes]);
 
   const contentBlocks: TelegramCommentContentBlock[] = comment.contentBlocks?.length
     ? comment.contentBlocks
@@ -395,7 +426,6 @@ function CommentItem({
   const visibleContentBlocks = canCollapseContent && !isContentExpanded
     ? contentBlocks.slice(0, firstImageIndex + 1)
     : contentBlocks;
-
   useEffect(() => {
     if (!comment.replies.length || !isRepliesHidden) return;
     const commentItem = commentItemRef.current;
@@ -417,34 +447,32 @@ function CommentItem({
     return () => observer.disconnect();
   }, [comment.id, comment.replies.length, isRepliesHidden, isReplying]);
 
-  const toggleLike = () => {
-    if (hasLiked) {
-      setLikes((current) => current - 1);
-      setHasLiked(false);
-      return;
-    }
+  const handleReaction = (type: 'like' | 'dislike') => {
+    hasInteracted.current = true;
+    const currentData = reactionDataRef.current;
+    const nextStatus = currentData.status === type ? null : type;
+    const nextData: ReactionData = {
+      status: nextStatus,
+      likes: Math.max(
+        0,
+        currentData.likes - Number(currentData.status === 'like') + Number(nextStatus === 'like'),
+      ),
+      dislikes: Math.max(
+        0,
+        currentData.dislikes - Number(currentData.status === 'dislike') + Number(nextStatus === 'dislike'),
+      ),
+    };
+    reactionDataRef.current = nextData;
+    setReactionData(nextData);
+    setReactionError('');
 
-    setLikes((current) => current + 1);
-    setHasLiked(true);
-    if (hasDisliked) {
-      setDislikes((current) => current - 1);
-      setHasDisliked(false);
-    }
-  };
-
-  const toggleDislike = () => {
-    if (hasDisliked) {
-      setDislikes((current) => current - 1);
-      setHasDisliked(false);
-      return;
-    }
-
-    setDislikes((current) => current + 1);
-    setHasDisliked(true);
-    if (hasLiked) {
-      setLikes((current) => current - 1);
-      setHasLiked(false);
-    }
+    const emoji = nextStatus === 'like' ? '👍' : nextStatus === 'dislike' ? '👎' : null;
+    reactionQueueRef.current = reactionQueueRef.current.then(() =>
+      onSendReaction(comment.id, emoji),
+    ).catch((error: unknown) => {
+      console.error('Fallo al guardar la reacción en Telegram.', error);
+      setReactionError(error instanceof Error ? error.message : String(error));
+    });
   };
 
   const saveEdit = async (blocks: TelegramCommentDraftBlock[]) => {
@@ -606,35 +634,40 @@ function CommentItem({
                 </button>
               </div>
             )}
-            <div className="mt-2 flex flex-wrap items-center gap-4">
+            <div className="mt-2 flex flex-wrap items-center gap-4 text-sm">
               <button
                 type="button"
-                aria-pressed={hasLiked}
-                onClick={toggleLike}
-                className={`text-xs font-medium transition-colors ${
-                  hasLiked ? 'text-primary-light' : 'text-gray-400 hover:text-primary-light'
+                aria-pressed={reactionData.status === 'like'}
+                onClick={() => handleReaction('like')}
+                className={`flex items-center gap-1 transition-colors ${
+                  reactionData.status === 'like' ? 'font-bold text-purple-500' : 'text-gray-400 hover:text-purple-400'
                 }`}
               >
-                <svg className="mr-1 inline h-3.5 w-3.5 align-[-2px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.3a2 2 0 0 0 2-1.7l1.3-8a2 2 0 0 0-2-2.3H14Z" />
                   <path d="M7 22H3V11h4" />
                 </svg>
-                Me gusta <span>{likes}</span>
+                Me gusta {reactionData.likes > 0 ? reactionData.likes : ''}
               </button>
               <button
                 type="button"
-                aria-pressed={hasDisliked}
-                onClick={toggleDislike}
-                className={`text-xs font-medium transition-colors ${
-                  hasDisliked ? 'text-primary-light' : 'text-gray-400 hover:text-primary-light'
+                aria-pressed={reactionData.status === 'dislike'}
+                onClick={() => handleReaction('dislike')}
+                className={`flex items-center gap-1 transition-colors ${
+                  reactionData.status === 'dislike' ? 'font-bold text-purple-500' : 'text-gray-400 hover:text-purple-400'
                 }`}
               >
-                <svg className="mr-1 inline h-3.5 w-3.5 align-[-2px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <path d="M10 15v4a2 2 0 0 0 2 2l4-8V3H5.7a2 2 0 0 0-2 1.7l-1.3 8a2 2 0 0 0 2 2.3H10Z" />
                   <path d="M16 3h4v10h-4" />
                 </svg>
-                No me gusta <span>{dislikes}</span>
+                No me gusta {reactionData.dislikes > 0 ? reactionData.dislikes : ''}
               </button>
+              {reactionError && (
+                <span role="alert" className="basis-full text-xs text-red-300">
+                  No se pudo guardar la reacción: {reactionError}
+                </span>
+              )}
               <button
                 type="button"
                 aria-expanded={isReplying}
@@ -722,6 +755,7 @@ function CommentItem({
                     comment={reply}
                     onSubmitReply={onSubmitReply}
                     onEdit={onEdit}
+                    onSendReaction={onSendReaction}
                     onRequestDelete={onRequestDelete}
                     onExternalLink={onExternalLink}
                     currentUserId={currentUserId}
@@ -1182,6 +1216,12 @@ export default function CommentSection({ animeId, episodeId = null, title }: Com
     fetchComments,
     findCommentThread,
   } = useTelegram();
+  const handleSendReaction = async (messageId: string, emoji: '👍' | '👎' | null) => {
+    if (!client || !isAuthenticated) {
+      throw new Error('Conecta una sesión autenticada de Telegram para reaccionar.');
+    }
+    await sendTelegramReaction(client, Number(messageId), emoji);
+  };
   const [comments, setComments] = useState<Comment[]>([]);
   const [externalLinkWarning, setExternalLinkWarning] = useState<string | null>(null);
   const [dontAskAgain, setDontAskAgain] = useState(false);
@@ -1610,6 +1650,7 @@ export default function CommentSection({ animeId, episodeId = null, title }: Com
               comment={comment}
               onSubmitReply={handleSubmitReply}
               onEdit={handleEditComment}
+              onSendReaction={handleSendReaction}
               onRequestDelete={(commentId) => {
                 setDeleteCommentError('');
                 setCommentToDelete(commentId);

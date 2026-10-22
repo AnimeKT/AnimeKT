@@ -27,14 +27,24 @@ function isRecentCommentActivity(value: unknown): value is RecentCommentActivity
     (activity.episodeId === null || typeof activity.episodeId === 'string') &&
     (activity.episodeLabel === null || typeof activity.episodeLabel === 'string') &&
     (activity.episodeTopicId === null || typeof activity.episodeTopicId === 'string') &&
-    (activity.episodeLanguage === null || activity.episodeLanguage === 'Sub' || activity.episodeLanguage === 'Dub');
+    (activity.episodeLanguage === null || activity.episodeLanguage === 'Sub' || activity.episodeLanguage === 'Dub') &&
+    (activity.likes === undefined || typeof activity.likes === 'number') &&
+    (activity.dislikes === undefined || typeof activity.dislikes === 'number');
+}
+
+function withReactionCounts(activities: RecentCommentActivity[]) {
+  return activities.map((activity) => ({
+    ...activity,
+    likes: activity.likes ?? 0,
+    dislikes: activity.dislikes ?? 0,
+  }));
 }
 
 export function useRecentCommentActivity() {
   const { animes, isLoading: isAnimeLoading } = useSharedAnimeData();
   const { client, isLoading: isTelegramLoading } = useTelegram();
   const [activities, setActivities] = useState<RecentCommentActivity[]>(
-    () => activityMemoryCache.get(ACTIVITY_CACHE_KEY) ?? [],
+    () => withReactionCounts(activityMemoryCache.get(ACTIVITY_CACHE_KEY) ?? []),
   );
   const [isLoading, setIsLoading] = useState(
     () => !activityMemoryCache.has(ACTIVITY_CACHE_KEY),
@@ -63,10 +73,11 @@ export function useRecentCommentActivity() {
         ]));
         const latest = await fetchRecentCommentActivity(client, animeInfo);
         if (cancelled) return;
-        setActivities(latest);
-        activityMemoryCache.set(ACTIVITY_CACHE_KEY, latest);
+        const normalizedLatest = withReactionCounts(latest);
+        setActivities(normalizedLatest);
+        activityMemoryCache.set(ACTIVITY_CACHE_KEY, normalizedLatest);
         try {
-          await localforage.setItem(ACTIVITY_CACHE_KEY, latest);
+          await localforage.setItem(ACTIVITY_CACHE_KEY, normalizedLatest);
         } catch (cacheError: unknown) {
           console.error('No se pudo guardar la caché de actividad reciente.', cacheError);
         }
@@ -97,7 +108,7 @@ export function useRecentCommentActivity() {
       void localforage.getItem<unknown>(ACTIVITY_CACHE_KEY)
         .then((cached) => {
           if (cancelled || !Array.isArray(cached)) return;
-          const validActivities = cached.filter(isRecentCommentActivity);
+          const validActivities = withReactionCounts(cached.filter(isRecentCommentActivity));
           if (validActivities.length > 0 && !activityMemoryCache.has(ACTIVITY_CACHE_KEY)) {
             activityMemoryCache.set(ACTIVITY_CACHE_KEY, validActivities);
             setActivities(validActivities);

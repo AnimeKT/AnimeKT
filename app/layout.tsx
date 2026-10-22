@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
+import Footer from '@/components/Footer';
 import Navbar from '@/components/layout/Navbar';
 import AuthGuard from '@/components/auth/AuthGuard';
 import { TelegramProvider } from '@/context/TelegramContext';
@@ -22,6 +23,7 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
               {children}
             </AuthGuard>
           </AnimeDataProvider>
+          <Footer />
         </TelegramProvider>
       </body>
     </html>

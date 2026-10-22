@@ -20,6 +20,8 @@ export type TelegramComment = {
   replyToMessageId?: string;
   contentBlocks?: TelegramCommentContentBlock[];
   likes: number;
+  dislikes: number;
+  userReaction?: 'like' | 'dislike' | null;
   replies: TelegramComment[];
   time: string;
   timestamp?: number;
@@ -62,6 +64,8 @@ export type RecentCommentActivity = {
   episodeLabel: string | null;
   episodeTopicId: string | null;
   episodeLanguage: 'Sub' | 'Dub' | null;
+  likes: number;
+  dislikes: number;
 };
 
 export type RecentCommentAnimeInfo = {
@@ -69,6 +73,24 @@ export type RecentCommentAnimeInfo = {
   topicsSub: number[];
   topicsDub: number[];
 };
+
+function getEpisodeNumberFromMessage(message: Api.Message, fallbackNumber: number) {
+  const text = message.message.normalize('NFKC');
+  const match = text.match(/C\s*A\s*P\s*-\s*(\d+(?:\.\d+)?)/i) ??
+    text.match(/EPISODIO N[°o]\s*(\d+(?:\.\d+)?)/i) ??
+    text.match(/\[(\d+(?:\.\d+)?)\]/) ??
+    text.match(/\b(?:episodio|ep\.?)\s*(\d+(?:\.\d+)?)/i);
+  return match?.[1] ?? String(fallbackNumber);
+}
+
+function isEpisodeVideoMessage(message: Api.Message) {
+  const media = message.media;
+  if (!(media instanceof Api.MessageMediaDocument) || !(media.document instanceof Api.Document)) {
+    return false;
+  }
+  return media.document.mimeType.startsWith('video/') ||
+    media.document.attributes.some((attribute) => attribute instanceof Api.DocumentAttributeVideo);
+}
 
 const avatarMemoryCache = new Map<string, string>();
 const avatarRequestCache = new Map<string, Promise<string | null>>();
@@ -259,6 +281,58 @@ async function getCommentsGroup(client: TelegramClient) {
   return groupDialog.entity;
 }
 
+function getReactionCount(message: Api.Message, emoji: '👍' | '👎') {
+  const reactions = message.reactions;
+  if (!(reactions instanceof Api.MessageReactions)) return 0;
+  const result = reactions.results.find(
+    (reaction) =>
+      reaction instanceof Api.ReactionCount &&
+      reaction.reaction instanceof Api.ReactionEmoji &&
+      reaction.reaction.emoticon === emoji,
+  );
+  return result instanceof Api.ReactionCount ? result.count : 0;
+}
+
+function getUserReaction(message: Api.Message): TelegramComment['userReaction'] {
+  const reactions = message.reactions;
+  if (!(reactions instanceof Api.MessageReactions)) return null;
+
+  const chosenReaction = reactions.results.find(
+    (reaction) => reaction instanceof Api.ReactionCount && reaction.chosenOrder !== undefined,
+  );
+  if (chosenReaction instanceof Api.ReactionCount &&
+    chosenReaction.reaction instanceof Api.ReactionEmoji) {
+    if (chosenReaction.reaction.emoticon === '👍') return 'like';
+    if (chosenReaction.reaction.emoticon === '👎') return 'dislike';
+  }
+
+  const ownReaction = reactions.recentReactions?.find(
+    (reaction) => reaction instanceof Api.MessagePeerReaction && reaction.my,
+  );
+  if (!(ownReaction instanceof Api.MessagePeerReaction) ||
+    !(ownReaction.reaction instanceof Api.ReactionEmoji)) return null;
+  if (ownReaction.reaction.emoticon === '👍') return 'like';
+  if (ownReaction.reaction.emoticon === '👎') return 'dislike';
+  return null;
+}
+
+export async function sendTelegramReaction(
+  client: TelegramClient,
+  messageId: number,
+  emoji: '👍' | '👎' | null,
+): Promise<void> {
+  if (!Number.isSafeInteger(messageId) || messageId <= 0) {
+    throw new Error('El identificador del comentario no es válido para enviar la reacción.');
+  }
+  if (!client.connected) await client.connect();
+  const group = await getCommentsGroup(client);
+  await client.invoke(new Api.messages.SendReaction({
+    peer: group,
+    msgId: messageId,
+    reaction: emoji ? [new Api.ReactionEmoji({ emoticon: emoji })] : [],
+  }));
+}
+
 export async function fetchRecentCommentActivity(
   client: TelegramClient,
   animesById: Map<string, RecentCommentAnimeInfo>,
@@ -269,7 +343,7 @@ export async function fetchRecentCommentActivity(
   const messages = (await client.getMessages(group, { limit }))
     .filter((message): message is Api.Message => message instanceof Api.Message)
     .sort((first, second) => first.id - second.id);
-  const threadByRoot = new Map<number, Omit<RecentCommentActivity, 'id' | 'userId' | 'username' | 'avatar' | 'text' | 'hasImage' | 'timestamp'>>();
+  const threadByRoot = new Map<number, Omit<RecentCommentActivity, 'id' | 'userId' | 'username' | 'avatar' | 'text' | 'hasImage' | 'timestamp' | 'likes' | 'dislikes'>>();
 
   messages.forEach((message) => {
     if (message.replyToMsgId !== undefined) return;
@@ -292,7 +366,7 @@ export async function fetchRecentCommentActivity(
     blockIndex: number;
     blockTexts: Array<{ index: number; text: string }>;
   }>();
-  const threadByMessage = new Map<number, Omit<RecentCommentActivity, 'id' | 'userId' | 'username' | 'avatar' | 'text' | 'hasImage' | 'timestamp'>>();
+  const threadByMessage = new Map<number, Omit<RecentCommentActivity, 'id' | 'userId' | 'username' | 'avatar' | 'text' | 'hasImage' | 'timestamp' | 'likes' | 'dislikes'>>();
   for (const message of messages) {
     const parentId = message.replyToMsgId;
     const thread = parentId === undefined ? undefined : threadByRoot.get(parentId) ?? threadByMessage.get(parentId);
@@ -316,6 +390,8 @@ export async function fetchRecentCommentActivity(
       if (marker.index === 0) {
         existing.activity.id = String(message.id);
         existing.activity.timestamp = message.date * 1000;
+        existing.activity.likes = getReactionCount(message, '👍');
+        existing.activity.dislikes = getReactionCount(message, '👎');
       }
       if (marker.text.trim()) {
         existing.blockTexts.push({ index: marker.index ?? existing.blockIndex, text: marker.text.trim() });
@@ -359,6 +435,8 @@ export async function fetchRecentCommentActivity(
       text: marker.text.trim(),
       hasImage,
       timestamp: message.date * 1000,
+      likes: getReactionCount(message, '👍'),
+      dislikes: getReactionCount(message, '👎'),
       ...thread,
     };
     blocks.set(groupKey, {
@@ -385,25 +463,34 @@ export async function fetchRecentCommentActivity(
   if (episodeIds.length > 0) {
     try {
       const episodeMessages = await client.getMessages('AnimeKTe', { ids: episodeIds });
-      const labels = new Map<number, string>();
       const episodeThreads = new Map<number, number>();
       episodeMessages.forEach((message) => {
-        if (!(message instanceof Api.Message)) return;
-        const text = message.message;
-        const match = text.match(/C\s*A\s*P\s*-\s*([0-9.]+)/i) ??
-          text.match(/EPISODIO N[°o]\s*([0-9.]+)/i) ??
-          text.match(/\[([0-9.]+)\]/);
-        if (match) labels.set(message.id, `Episodio ${match[1]}`);
         const topicId = message.replyTo?.replyToTopId ?? message.replyTo?.replyToMsgId;
         if (topicId) episodeThreads.set(message.id, topicId);
       });
+      const topicIds = [...new Set(episodeThreads.values())];
+      const episodesByTopic = new Map<number, Api.Message[]>();
+      await Promise.all(topicIds.map(async (topicId) => {
+        const topicMessages = await client.getMessages('AnimeKTe', { replyTo: topicId, limit: 100 });
+        const episodes = topicMessages
+          .filter((message): message is Api.Message => message instanceof Api.Message)
+          .filter(isEpisodeVideoMessage)
+          .sort((first, second) => second.id - first.id);
+        episodesByTopic.set(topicId, episodes);
+      }));
       activities.forEach((activity) => {
         const episodeId = activity.episodeId ? Number(activity.episodeId) : null;
         if (episodeId !== null) {
-          activity.episodeLabel = labels.get(episodeId) ?? `Episodio ${episodeId}`;
           const topicId = episodeThreads.get(episodeId);
           const anime = animesById.get(activity.animeId);
           if (topicId) {
+            const topicEpisodes = episodesByTopic.get(topicId) ?? [];
+            const episodeIndex = topicEpisodes.findIndex((episode) => String(episode.id) === String(episodeId));
+            const matchedEpisode = episodeIndex >= 0 ? topicEpisodes[episodeIndex] : undefined;
+            if (matchedEpisode) {
+              const episodeNumber = getEpisodeNumberFromMessage(matchedEpisode, topicEpisodes.length - episodeIndex);
+              activity.episodeLabel = `Episodio ${episodeNumber}`;
+            }
             activity.episodeTopicId = String(topicId);
             activity.episodeLanguage = anime?.topicsSub.includes(topicId)
               ? 'Sub'
@@ -417,7 +504,7 @@ export async function fetchRecentCommentActivity(
       console.warn('No se pudieron resolver los nombres de episodios de la actividad reciente.', error);
       activities.forEach((activity) => {
         if (activity.episodeId) {
-          activity.episodeLabel = `Episodio ${activity.episodeId}`;
+          activity.episodeLabel = null;
           activity.episodeTopicId = null;
           activity.episodeLanguage = null;
         }
@@ -818,7 +905,9 @@ export async function fetchComments(
               index: marker.index ?? 0,
             }] : []),
           ],
-          likes: 0,
+          likes: getReactionCount(message, '👍'),
+          dislikes: getReactionCount(message, '👎'),
+          userReaction: getUserReaction(message),
           replies: [],
           time: date.toLocaleString(),
           timestamp: date.getTime(),

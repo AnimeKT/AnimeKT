@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Api } from 'telegram/tl';
 import type { TelegramAnimeMessage } from '@/hooks/anime';
 import { useTelegram } from '@/context/TelegramContext';
@@ -14,6 +14,7 @@ import EpisodeThumbnail from '@/components/anime/EpisodeThumbnail';
 import ThreeDCoverImage from '@/components/anime/3DCoverImage';
 
 const EPISODE_GROUP = 'AnimeKTe';
+const EMPTY_SEASON_ERROR = 'Esta temporada aún no ha sido subida o no tiene episodios disponibles.';
 
 type EpisodeLink = {
   id: number;
@@ -40,6 +41,25 @@ function episodeLabel(message: TelegramAnimeMessage, fallback: number) {
   return special ? special.toUpperCase() : `Episodio ${fallback}`;
 }
 
+function getEpisodeListSignature(episodes: EpisodeLink[]) {
+  return JSON.stringify(episodes.map((episode) => {
+    const media = episode.message.media;
+    const documentId = media instanceof Api.MessageMediaDocument &&
+      media.document instanceof Api.Document
+      ? media.document.id.toString()
+      : null;
+
+    return {
+      id: episode.id,
+      topicId: episode.topicId,
+      language: episode.language,
+      label: episode.label,
+      text: getTelegramMessageText(episode.message),
+      documentId,
+    };
+  }));
+}
+
 export default function AnimeCoverPage() {
   const { id } = useParams<{ id: string }>();
   const { animes, isLoading: isLoadingAnime } = useSharedAnimeData();
@@ -55,9 +75,13 @@ export default function AnimeCoverPage() {
   const [episodes, setEpisodes] = useState<EpisodeLink[]>([]);
   const [selectedLanguage, setSelectedLanguage] = useState<'Sub' | 'Dub'>('Sub');
   const [selectedSeasonKey, setSelectedSeasonKey] = useState('');
-  const [isLoadingEpisodes, setIsLoadingEpisodes] = useState(false);
+  const [isLoadingInitialEpisodes, setIsLoadingInitialEpisodes] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isFavorite, setIsFavorite] = useState(false);
+  const episodesRef = useRef(episodes);
+  const errorRef = useRef(error);
+  episodesRef.current = episodes;
+  errorRef.current = error;
 
   const episodeTopics = useMemo(() => {
     if (!anime) return [];
@@ -86,12 +110,16 @@ export default function AnimeCoverPage() {
   );
 
   const handleLanguageChange = (language: 'Sub' | 'Dub') => {
+    setError(null);
+    setEpisodes([]);
     setSelectedLanguage(language);
     const firstTopic = episodeTopics.find((topic) => topic.language === language);
     setSelectedSeasonKey(firstTopic ? `${firstTopic.language}:${firstTopic.topicId}` : '');
   };
 
   const handleSeasonChange = (topicId: number) => {
+    setError(null);
+    setEpisodes([]);
     setSelectedSeasonKey(`${selectedLanguage}:${topicId}`);
   };
 
@@ -114,8 +142,9 @@ export default function AnimeCoverPage() {
     const loadEpisodes = async (initial = false) => {
       if (isRefreshing) return;
       isRefreshing = true;
-      if (initial) setIsLoadingEpisodes(true);
-      setError(null);
+      const hasVisibleResult = episodesRef.current.length > 0 || errorRef.current !== null;
+      const showInitialLoading = initial && !hasVisibleResult;
+      if (showInitialLoading) setIsLoadingInitialEpisodes(true);
       try {
         await client.connect();
         const messages = await client.getMessages(EPISODE_GROUP, {
@@ -129,11 +158,23 @@ export default function AnimeCoverPage() {
           label: episodeLabel(message, index + 1),
           message,
         }));
-        if (!cancelled) setEpisodes(selectedEpisodes);
+        if (!cancelled) {
+          if (getEpisodeListSignature(episodesRef.current) !== getEpisodeListSignature(selectedEpisodes)) {
+            setEpisodes(selectedEpisodes);
+          }
+          if (errorRef.current !== null) setError(null);
+        }
       } catch (loadError) {
-        if (!cancelled) setError(loadError instanceof Error ? loadError.message : String(loadError));
+        if (!cancelled) {
+          const message = loadError instanceof Error ? loadError.message : String(loadError);
+          const nextError = /MSG_ID_INVALID|MESSAGE_ID_INVALID/i.test(message)
+            ? EMPTY_SEASON_ERROR
+            : message;
+          if (episodesRef.current.length > 0) setEpisodes([]);
+          if (errorRef.current !== nextError) setError(nextError);
+        }
       } finally {
-        if (!cancelled) setIsLoadingEpisodes(false);
+        if (!cancelled && showInitialLoading) setIsLoadingInitialEpisodes(false);
         isRefreshing = false;
       }
     };
@@ -299,12 +340,31 @@ export default function AnimeCoverPage() {
             )}
           </div>
         )}
-        {error && (
-          <p role="alert" className="mb-4 rounded-lg border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm text-red-200">
-            No se pudieron cargar los episodios: {error}
-          </p>
-        )}
-        {isLoadingEpisodes ? (
+        {error ? (
+          error === EMPTY_SEASON_ERROR ? (
+            <div
+              role="alert"
+              className="rounded-xl border border-sky-400/20 bg-sky-400/10 px-5 py-6 text-center"
+            >
+              <p className="text-sm text-sky-100">{EMPTY_SEASON_ERROR}</p>
+              <a
+                href="https://t.me/Kaergsty/2029"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-4 inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-sky-300/30 bg-sky-500/20 px-4 text-sm font-semibold text-sky-100 transition-colors hover:bg-sky-500/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300"
+              >
+                <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
+                  <path d="M21.7 4.3a1.5 1.5 0 0 0-1.6-.3L3.2 10.6c-1.1.4-1.1 1.1-.2 1.4l4.3 1.3 1.6 5c.2.6.1.8.7.8.5 0 .7-.2 1-.5l2.1-2 4.4 3.2c.8.4 1.4.2 1.6-.8l2.9-13.5c.2-.8-.3-1.2-.9-1.2ZM8 13l9.5-6c.5-.3 1-.1.6.2l-7.8 7-.3 3.2L8 13Z" />
+                </svg>
+                Avisar al administrador
+              </a>
+            </div>
+          ) : (
+            <p role="alert" className="rounded-lg border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm text-red-200">
+              No se pudieron cargar los episodios: {error}
+            </p>
+          )
+        ) : episodes.length === 0 && !error && isLoadingInitialEpisodes ? (
           <p role="status" className="py-8 text-sm text-gray-400">Cargando episodios...</p>
         ) : episodes.length > 0 ? (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">

@@ -27,6 +27,7 @@ type NavbarProps = {
 const navigation = [
   { href: '/home', label: 'Inicio' },
   { href: '/catalogo', label: 'Catálogo' },
+  { href: '/horario', label: 'Horario' },
   { href: '/favoritos', label: 'Mi lista' },
 ];
 
