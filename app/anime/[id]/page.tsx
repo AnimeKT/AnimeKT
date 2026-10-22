@@ -78,6 +78,7 @@ export default function AnimeCoverPage() {
   const [isLoadingInitialEpisodes, setIsLoadingInitialEpisodes] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isFavorite, setIsFavorite] = useState(false);
+  const [isWatched, setIsWatched] = useState(false);
   const episodesRef = useRef(episodes);
   const errorRef = useRef(error);
   episodesRef.current = episodes;
@@ -127,6 +128,12 @@ export default function AnimeCoverPage() {
     if (!anime) return;
     const favorites = JSON.parse(localStorage.getItem('mis_favoritos') || '[]') as string[];
     setIsFavorite(favorites.includes(anime.id));
+  }, [anime]);
+
+  useEffect(() => {
+    if (!anime) return;
+    const watchedAnime: unknown = JSON.parse(localStorage.getItem('animes_vistos') || '[]');
+    setIsWatched(Array.isArray(watchedAnime) && watchedAnime.includes(anime.id));
   }, [anime]);
 
   useEffect(() => {
@@ -205,6 +212,27 @@ export default function AnimeCoverPage() {
     setIsFavorite(!favorites.includes(anime.id));
   };
 
+  const handleToggleWatched = async () => {
+    if (!anime) return;
+    const previousState = isWatched;
+    const nextState = !previousState;
+    setIsWatched(nextState);
+
+    try {
+      const storedWatched: unknown = JSON.parse(localStorage.getItem('animes_vistos') || '[]');
+      const watchedAnime = Array.isArray(storedWatched)
+        ? storedWatched.filter((animeId): animeId is string => typeof animeId === 'string')
+        : [];
+      const nextWatched = nextState
+        ? [...new Set([...watchedAnime, anime.id])]
+        : watchedAnime.filter((animeId) => animeId !== anime.id);
+      localStorage.setItem('animes_vistos', JSON.stringify(nextWatched));
+    } catch (error) {
+      console.error('Error al actualizar el estado de visto:', error);
+      setIsWatched(previousState);
+    }
+  };
+
   if (isLoadingAnime || isTelegramLoading) {
     return <main className="mx-auto min-h-screen max-w-7xl px-5 py-12 text-gray-400">Cargando anime...</main>;
   }
@@ -257,7 +285,7 @@ export default function AnimeCoverPage() {
               </Link>
             ))}
           </div>
-          <div className="mt-6 flex flex-wrap gap-3">
+          <div className="mt-6 mb-6 flex flex-wrap items-center gap-4">
             <button
               type="button"
               aria-pressed={isFavorite}
@@ -265,6 +293,33 @@ export default function AnimeCoverPage() {
               className="min-h-11 rounded-lg bg-primary px-5 text-sm font-semibold text-white transition-colors hover:bg-primary-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-light"
             >
               {isFavorite ? '✓ En mi lista' : '＋ Agregar a Lista'}
+            </button>
+            <button
+              type="button"
+              aria-pressed={isWatched}
+              onClick={() => void handleToggleWatched()}
+              className={`flex min-h-11 items-center gap-2 rounded-md border px-4 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-light ${
+                isWatched
+                  ? 'border-green-600/50 bg-green-600/20 text-green-400 hover:bg-green-600/30'
+                  : 'border-transparent bg-[#2a2a3e] text-gray-300 hover:bg-[#3a3a4e]'
+              }`}
+            >
+              {isWatched ? (
+                <>
+                  <svg aria-hidden="true" className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                  </svg>
+                  Visto
+                </>
+              ) : (
+                <>
+                  <svg aria-hidden="true" className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                  Marcar como visto
+                </>
+              )}
             </button>
           </div>
           <div className="mt-6 flex flex-wrap items-center gap-2">

@@ -24,8 +24,8 @@
   },
   "homepage": "https://github.com/AnimeKT/AnimeKT#readme",
   "dependencies": {
+    "@upstash/redis": "^1.39.0",
     "big-integer": "^1.6.52",
-    "localforage": "^1.10.0",
     "localforage": "^1.10.0",
     "next": "^15.5.0",
     "react": "^19.1.0",

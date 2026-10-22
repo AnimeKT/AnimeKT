@@ -1231,8 +1231,8 @@ export default function CommentSection({ animeId, episodeId = null, title }: Com
   const [hasMore, setHasMore] = useState(false);
   const [nextOffsetId, setNextOffsetId] = useState<number | null>(null);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [isLoadingComments, setIsLoadingComments] = useState(true);
-  const [isCreatingThread, setIsCreatingThread] = useState(false);
+  const [isFetchingInitial, setIsFetchingInitial] = useState(true);
+  const [isCreatingTopic, setIsCreatingTopic] = useState(false);
   const [commentsError, setCommentsError] = useState('');
   const [currentThreadId, setCurrentThreadId] = useState<number | null>(null);
   const [submitError, setSubmitError] = useState('');
@@ -1271,7 +1271,7 @@ export default function CommentSection({ animeId, episodeId = null, title }: Com
   }, [isDropdownOpen]);
 
   useEffect(() => {
-    if (isLoadingComments || !window.location.hash.startsWith('#comment-')) return;
+    if (isFetchingInitial || !window.location.hash.startsWith('#comment-')) return;
     const commentId = decodeURIComponent(window.location.hash.slice('#comment-'.length));
     const frame = window.requestAnimationFrame(() => {
       document.getElementById(`comment-${commentId}`)?.scrollIntoView({
@@ -1280,7 +1280,7 @@ export default function CommentSection({ animeId, episodeId = null, title }: Com
       });
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [comments, isLoadingComments]);
+  }, [comments, isFetchingInitial]);
 
   useEffect(() => {
     const currentUrls = new Set<string>();
@@ -1302,8 +1302,7 @@ export default function CommentSection({ animeId, episodeId = null, title }: Com
 
   const initThread = useCallback(async (isCancelled: () => boolean) => {
     if (isTelegramLoading || !title || title === 'Anime' || title.trim() === '') return;
-    setIsLoadingComments(true);
-    setIsCreatingThread(false);
+    setIsFetchingInitial(true);
     setCommentsError('');
     setCurrentThreadId(null);
     setComments([]);
@@ -1341,22 +1340,50 @@ export default function CommentSection({ animeId, episodeId = null, title }: Com
         }
         return;
       }
+    } catch (error) {
+      if (!isCancelled()) {
+        setCommentsError(error instanceof Error ? error.message : String(error));
+      }
+    } finally {
+      if (!isCancelled()) {
+        setIsFetchingInitial(false);
+      }
+    }
+  }, [
+    animeId,
+    client,
+    episodeId,
+    fetchComments,
+    findCommentThread,
+    isAuthenticated,
+    isTelegramLoading,
+    title,
+  ]);
 
-      setIsCreatingThread(true);
+  const handleCreateThread = async () => {
+    if (isCreatingTopic || currentThreadId !== null) return;
+
+    setIsCreatingTopic(true);
+    setCommentsError('');
+    try {
+      if (!client || !isAuthenticated) {
+        throw new Error('Conecta una sesión autenticada de Telegram para crear el espacio de discusión.');
+      }
+
+      const hashtag = buildCommentThreadHashtag(animeId, episodeId);
       await createThreadOnce(hashtag, { animeId, episodeId, title });
-      if (isCancelled()) return;
+
+      let threadId: number | null = null;
       for (let attempt = 0; attempt < 5 && threadId === null; attempt += 1) {
         threadId = await findCommentThread(hashtag);
         if (threadId === null && attempt < 4) {
           await new Promise((resolve) => window.setTimeout(resolve, 3000));
-          if (isCancelled()) return;
         }
       }
       if (threadId === null) {
         throw new Error('Telegram aún no muestra el hilo creado. Inténtalo de nuevo en unos segundos.');
       }
 
-      if (isCancelled()) return;
       setCurrentThreadId(threadId);
       const cacheKey = `comments_${threadId}`;
       try {
@@ -1371,31 +1398,15 @@ export default function CommentSection({ animeId, episodeId = null, title }: Com
         console.error('No se pudo leer la caché de comentarios.', error);
       }
       const page = await fetchComments(threadId);
-      if (!isCancelled()) {
-        setComments(page.comments);
-        setHasMore(page.hasMore);
-        setNextOffsetId(page.nextOffsetId);
-      }
+      setComments(page.comments);
+      setHasMore(page.hasMore);
+      setNextOffsetId(page.nextOffsetId);
     } catch (error) {
-      if (!isCancelled()) {
-        setCommentsError(error instanceof Error ? error.message : String(error));
-      }
+      setCommentsError(error instanceof Error ? error.message : String(error));
     } finally {
-      if (!isCancelled()) {
-        setIsCreatingThread(false);
-        setIsLoadingComments(false);
-      }
+      setIsCreatingTopic(false);
     }
-  }, [
-    animeId,
-    client,
-    episodeId,
-    fetchComments,
-    findCommentThread,
-    isAuthenticated,
-    isTelegramLoading,
-    title,
-  ]);
+  };
 
   const handleEditComment = async (comment: Comment, blocks: TelegramCommentDraftBlock[]) => {
     if (currentThreadId === null) throw new Error('El hilo de comentarios no está disponible.');
@@ -1560,8 +1571,6 @@ export default function CommentSection({ animeId, episodeId = null, title }: Com
     }
   };
 
-  const isInitializing = isLoadingComments || isCreatingThread;
-
   return (
     <section aria-labelledby="comments-heading" className="mt-12">
       <div className="mb-5 flex items-center justify-between">
@@ -1619,24 +1628,54 @@ export default function CommentSection({ animeId, episodeId = null, title }: Com
         </div>
       </div>
 
-      <div className="rounded-2xl border border-white/10 bg-[#1a1c23] p-4 sm:p-5">
-        {isCreatingThread && (
-          <p role="status" className="mb-3 animate-pulse text-sm text-purple-400">
-            Creando espacio de discusión...
+      {isCreatingTopic ? (
+        <div
+          className="w-full bg-[#14141f] border border-gray-800/60 rounded-xl p-8 flex flex-col items-center justify-center min-h-[160px] space-y-4"
+        >
+          <div className="w-8 h-8 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin"></div>
+
+          <div className="text-center">
+            <p className="text-gray-300 font-medium text-sm">
+              Preparando el espacio de discusión...
+            </p>
+            <p className="text-gray-500 text-xs mt-1">
+              Acomodando los asientos, solo tomará un momento.
+            </p>
+          </div>
+        </div>
+      ) : isFetchingInitial ? null : currentThreadId === null ? (
+        <div className="mt-5 rounded-2xl border border-white/10 bg-[#1a1c23] px-5 py-8 text-center">
+          <p className="text-sm text-gray-400">
+            Aún no hay un espacio de discusión para este episodio.
           </p>
-        )}
-        <RichCommentComposer
-          key={currentThreadId ?? 'pending-thread'}
-          error={submitError}
-          isSubmitting={isInitializing || isSending}
-          submitLabel="Comentar"
-          onSubmit={submitComment}
-        />
-      </div>
+          {commentsError && (
+            <p role="alert" className="mt-3 text-sm text-red-200">
+              No se pudo cargar el espacio de discusión: {commentsError}
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={() => void handleCreateThread()}
+            className="mt-4 rounded bg-purple-600 px-4 py-2 text-white transition-colors hover:bg-purple-700"
+          >
+            Iniciar discusión
+          </button>
+        </div>
+      ) : (
+        <div className="min-h-36 rounded-2xl border border-white/10 bg-[#1a1c23] p-4 sm:p-5">
+          <RichCommentComposer
+            key={currentThreadId}
+            error={submitError}
+            isSubmitting={isSending}
+            submitLabel="Comentar"
+            onSubmit={submitComment}
+          />
+        </div>
+      )}
 
       {comments.length > 0 ? (
         <div className="mt-5 space-y-5">
-          {isLoadingComments && (
+          {isFetchingInitial && (
             <p role="status" className="text-center text-xs text-gray-500">Actualizando comentarios...</p>
           )}
           {commentsError && (
@@ -1670,10 +1709,10 @@ export default function CommentSection({ animeId, episodeId = null, title }: Com
             </button>
           )}
         </div>
-      ) : isLoadingComments ? (
-        !isCreatingThread && (
-          <p role="status" className="mt-5 py-6 text-center text-sm text-gray-400">Cargando comentarios...</p>
-        )
+      ) : isFetchingInitial ? (
+        null
+      ) : currentThreadId === null || isCreatingTopic ? (
+        null
       ) : commentsError ? (
         <p role="alert" className="mt-5 rounded-lg border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm text-red-200">
           No se pudieron cargar los comentarios: {commentsError}
