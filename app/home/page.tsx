@@ -1,6 +1,7 @@
 'use client';
 
 import AnimeCatalogGrid from '@/components/anime/AnimeCatalogGrid';
+import ActivitySection from '@/components/anime/ActivitySection';
 import HeroBanner from '@/components/anime/HeroBanner';
 import RecentEpisodeCard from '@/components/anime/RecentEpisodeCard';
 import { useSharedAnimeData } from '@/context/AnimeDataContext';
@@ -62,6 +63,7 @@ export default function HomePage() {
           </p>
         )}
       </section>
+      <ActivitySection />
       <section
         aria-labelledby="catalog-heading"
         className="relative z-10 mx-auto mt-12 max-w-7xl px-5 sm:px-8"

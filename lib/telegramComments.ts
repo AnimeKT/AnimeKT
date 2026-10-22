@@ -21,6 +21,7 @@ export type TelegramComment = {
   likes: number;
   replies: TelegramComment[];
   time: string;
+  timestamp?: number;
   color: string;
 };
 
@@ -44,6 +45,28 @@ export type TelegramCommentsPage = {
   comments: TelegramComment[];
   hasMore: boolean;
   nextOffsetId: number | null;
+};
+
+export type RecentCommentActivity = {
+  id: string;
+  userId: string;
+  username: string;
+  avatar: string;
+  text: string;
+  hasImage: boolean;
+  timestamp: number;
+  animeId: string;
+  animeTitle: string;
+  episodeId: string | null;
+  episodeLabel: string | null;
+  episodeTopicId: string | null;
+  episodeLanguage: 'Sub' | 'Dub' | null;
+};
+
+export type RecentCommentAnimeInfo = {
+  title: string;
+  topicsSub: number[];
+  topicsDub: number[];
 };
 
 const markerPrefix = '\u2063\u200D';
@@ -145,6 +168,175 @@ async function getCommentsGroup(client: TelegramClient) {
     throw new Error('No se encontró el grupo de comentarios en los diálogos de esta cuenta de Telegram.');
   }
   return groupDialog.entity;
+}
+
+export async function fetchRecentCommentActivity(
+  client: TelegramClient,
+  animesById: Map<string, RecentCommentAnimeInfo>,
+  limit = 500,
+): Promise<RecentCommentActivity[]> {
+  if (!client.connected) await client.connect();
+  const group = await getCommentsGroup(client);
+  const messages = (await client.getMessages(group, { limit }))
+    .filter((message): message is Api.Message => message instanceof Api.Message)
+    .sort((first, second) => first.id - second.id);
+  const threadByRoot = new Map<number, Omit<RecentCommentActivity, 'id' | 'userId' | 'username' | 'avatar' | 'text' | 'hasImage' | 'timestamp'>>();
+
+  messages.forEach((message) => {
+    if (message.replyToMsgId !== undefined) return;
+    const match = message.message.match(/(?:^|\s)#anime_(\d+)(?:_ep_(\d+)|_general)(?=$|\s)/i);
+    if (!match) return;
+    const animeId = match[1];
+    const anime = animesById.get(animeId);
+    threadByRoot.set(message.id, {
+      animeId,
+      animeTitle: anime?.title ?? `Anime ${animeId}`,
+      episodeId: match[2] ?? null,
+      episodeLabel: null,
+      episodeTopicId: null,
+      episodeLanguage: null,
+    });
+  });
+
+  const blocks = new Map<string, {
+    activity: RecentCommentActivity;
+    blockIndex: number;
+    blockTexts: Array<{ index: number; text: string }>;
+  }>();
+  const threadByMessage = new Map<number, Omit<RecentCommentActivity, 'id' | 'userId' | 'username' | 'avatar' | 'text' | 'hasImage' | 'timestamp'>>();
+  for (const message of messages) {
+    const parentId = message.replyToMsgId;
+    const thread = parentId === undefined ? undefined : threadByRoot.get(parentId) ?? threadByMessage.get(parentId);
+    if (!thread) continue;
+    threadByMessage.set(message.id, thread);
+
+    const marker = stripCommentBlockMarker(message.message);
+    const groupKey = marker.groupId
+      ? `content:${marker.groupId}`
+      : message.groupedId
+        ? `media:${message.groupedId}`
+        : `message:${message.id}`;
+    const existing = blocks.get(groupKey);
+    const hasImage = message.media instanceof Api.MessageMediaPhoto ||
+      (message.media instanceof Api.MessageMediaDocument &&
+        message.media.document instanceof Api.Document &&
+        message.media.document.mimeType.startsWith('image/'));
+
+    if (existing) {
+      existing.activity.hasImage ||= hasImage;
+      if (marker.index === 0) {
+        existing.activity.id = String(message.id);
+        existing.activity.timestamp = message.date * 1000;
+      }
+      if (marker.text.trim()) {
+        existing.blockTexts.push({ index: marker.index ?? existing.blockIndex, text: marker.text.trim() });
+      }
+      continue;
+    }
+
+    const rawSenderId = message.senderId?.toString() ??
+      (message.fromId instanceof Api.PeerUser
+        ? message.fromId.userId.toString()
+        : message.fromId instanceof Api.PeerChannel
+          ? message.fromId.channelId.toString()
+          : message.fromId instanceof Api.PeerChat
+            ? message.fromId.chatId.toString()
+            : 'unknown');
+    let sender = message.sender;
+    if (!sender && typeof message.getSender === 'function') {
+      try {
+        sender = await message.getSender();
+      } catch (error) {
+        console.warn(`No se pudo resolver el remitente del comentario ${message.id}.`, error);
+      }
+    }
+    const username = sender instanceof Api.User
+      ? sender.firstName || sender.username || 'Usuario'
+      : sender instanceof Api.Chat || sender instanceof Api.Channel
+        ? sender.title || 'Usuario'
+        : 'Usuario';
+    const avatarName = username === 'Usuario' ? rawSenderId : username;
+    const avatar = avatarName
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toLocaleUpperCase() ?? '')
+      .join('') || '?';
+    const activity: RecentCommentActivity = {
+      id: String(message.id),
+      userId: rawSenderId,
+      username,
+      avatar,
+      text: marker.text.trim(),
+      hasImage,
+      timestamp: message.date * 1000,
+      ...thread,
+    };
+    blocks.set(groupKey, {
+      activity,
+      blockIndex: marker.index ?? 0,
+      blockTexts: marker.text.trim() ? [{ index: marker.index ?? 0, text: marker.text.trim() }] : [],
+    });
+  }
+
+  const activities = [...blocks.values()]
+    .map(({ activity, blockTexts }) => ({
+      ...activity,
+      text: blockTexts
+        .sort((first, second) => first.index - second.index)
+        .map(({ text }) => text)
+        .join('\n'),
+    }))
+    .sort((first, second) => second.timestamp - first.timestamp)
+    .slice(0, 12);
+
+  const episodeIds = [...new Set(
+    activities.flatMap(({ episodeId }) => episodeId ? [Number(episodeId)] : []),
+  )].filter((id) => Number.isSafeInteger(id) && id > 0);
+  if (episodeIds.length > 0) {
+    try {
+      const episodeMessages = await client.getMessages('AnimeKTe', { ids: episodeIds });
+      const labels = new Map<number, string>();
+      const episodeThreads = new Map<number, number>();
+      episodeMessages.forEach((message) => {
+        if (!(message instanceof Api.Message)) return;
+        const text = message.message;
+        const match = text.match(/C\s*A\s*P\s*-\s*([0-9.]+)/i) ??
+          text.match(/EPISODIO N[°o]\s*([0-9.]+)/i) ??
+          text.match(/\[([0-9.]+)\]/);
+        if (match) labels.set(message.id, `Episodio ${match[1]}`);
+        const topicId = message.replyTo?.replyToTopId ?? message.replyTo?.replyToMsgId;
+        if (topicId) episodeThreads.set(message.id, topicId);
+      });
+      activities.forEach((activity) => {
+        const episodeId = activity.episodeId ? Number(activity.episodeId) : null;
+        if (episodeId !== null) {
+          activity.episodeLabel = labels.get(episodeId) ?? `Episodio ${episodeId}`;
+          const topicId = episodeThreads.get(episodeId);
+          const anime = animesById.get(activity.animeId);
+          if (topicId) {
+            activity.episodeTopicId = String(topicId);
+            activity.episodeLanguage = anime?.topicsSub.includes(topicId)
+              ? 'Sub'
+              : anime?.topicsDub.includes(topicId)
+                ? 'Dub'
+                : null;
+          }
+        }
+      });
+    } catch (error) {
+      console.warn('No se pudieron resolver los nombres de episodios de la actividad reciente.', error);
+      activities.forEach((activity) => {
+        if (activity.episodeId) {
+          activity.episodeLabel = `Episodio ${activity.episodeId}`;
+          activity.episodeTopicId = null;
+          activity.episodeLanguage = null;
+        }
+      });
+    }
+  }
+
+  return activities;
 }
 
 export async function deleteTelegramMessages(
@@ -544,6 +736,7 @@ export async function fetchComments(
           likes: 0,
           replies: [],
           time: date.toLocaleString(),
+          timestamp: date.getTime(),
           color: avatarColors[index % avatarColors.length],
         },
       });

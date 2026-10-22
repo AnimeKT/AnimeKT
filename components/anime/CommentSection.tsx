@@ -12,6 +12,14 @@ import type {
 import { buildCommentThreadHashtag } from '@/lib/commentThread';
 
 type Comment = TelegramComment;
+type CommentSortOption = 'recientes' | 'antiguos' | 'populares' | 'respuestas';
+
+const commentSortLabels: Record<CommentSortOption, string> = {
+  recientes: 'Más recientes',
+  antiguos: 'Más antiguos',
+  populares: 'Más populares',
+  respuestas: 'Más respuestas',
+};
 
 type FormatKind = 'bold' | 'italic' | 'emoji';
 
@@ -471,7 +479,7 @@ function CommentItem({
   };
 
   return (
-    <div ref={commentItemRef} className="group relative mt-4">
+    <div ref={commentItemRef} id={`comment-${comment.id}`} className="group relative mt-4 scroll-mt-24">
       {comment.replies.length > 0 && (
         <div
           ref={connectorRef}
@@ -1190,7 +1198,38 @@ export default function CommentSection({ animeId, episodeId = null, title }: Com
   const [currentThreadId, setCurrentThreadId] = useState<number | null>(null);
   const [submitError, setSubmitError] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const [sortBy, setSortBy] = useState<CommentSortOption>('recientes');
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const sortDropdownRef = useRef<HTMLDivElement>(null);
   const commentMediaUrlsRef = useRef(new Set<string>());
+
+  const sortedComments = [...comments].sort((first, second) => {
+    if (sortBy === 'populares') return second.likes - first.likes;
+    if (sortBy === 'respuestas') return second.replies.length - first.replies.length;
+
+    const getTimestamp = (comment: Comment) =>
+      comment.timestamp ?? (Date.parse(comment.time) || Number(comment.id) || 0);
+    const dateDifference = getTimestamp(second) - getTimestamp(first);
+    return sortBy === 'recientes' ? dateDifference : -dateDifference;
+  });
+
+  useEffect(() => {
+    if (!isDropdownOpen) return;
+    const closeOnOutsideClick = (event: PointerEvent) => {
+      if (event.target instanceof Node && !sortDropdownRef.current?.contains(event.target)) {
+        setIsDropdownOpen(false);
+      }
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsDropdownOpen(false);
+    };
+    document.addEventListener('pointerdown', closeOnOutsideClick);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsideClick);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [isDropdownOpen]);
 
   useEffect(() => {
     const currentUrls = new Set<string>();
@@ -1205,6 +1244,18 @@ export default function CommentSection({ animeId, episodeId = null, title }: Com
     });
     commentMediaUrlsRef.current = currentUrls;
   }, [comments]);
+
+  useEffect(() => {
+    if (isLoadingComments || !window.location.hash.startsWith('#comment-')) return;
+    const commentId = decodeURIComponent(window.location.hash.slice('#comment-'.length));
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById(`comment-${commentId}`)?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [comments, isLoadingComments]);
 
   useEffect(() => () => {
     commentMediaUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
@@ -1479,7 +1530,54 @@ export default function CommentSection({ animeId, episodeId = null, title }: Com
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary-light">Comunidad</p>
           <h2 id="comments-heading" className="mt-1 text-2xl font-bold text-white">Comentarios</h2>
         </div>
-        <span className="rounded-full bg-white/5 px-3 py-1 text-sm text-gray-400">{countComments(comments)}</span>
+        <div className="flex items-center gap-3">
+          <span className="rounded-full bg-white/5 px-3 py-1 text-sm text-gray-400">{countComments(comments)}</span>
+          <div ref={sortDropdownRef} className="relative">
+            <button
+              type="button"
+              aria-haspopup="menu"
+              aria-expanded={isDropdownOpen}
+              onClick={() => setIsDropdownOpen((open) => !open)}
+              className="flex items-center gap-2 rounded-lg border border-white/10 bg-[#1a1c23] px-3 py-2 text-xs font-medium text-gray-300 transition-colors hover:border-white/20 hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-light"
+            >
+              <span>Ordenar por: <span className="text-white">{commentSortLabels[sortBy]}</span></span>
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                className={`h-4 w-4 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`}
+              >
+                <path fillRule="evenodd" d="M5.22 7.47a.75.75 0 0 1 1.06 0L10 11.19l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 8.53a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+              </svg>
+            </button>
+            {isDropdownOpen && (
+              <div
+                role="menu"
+                aria-label="Ordenar comentarios"
+                className="absolute right-0 z-40 mt-2 w-48 overflow-hidden rounded-xl border border-white/10 bg-[#282828] p-1.5 shadow-xl shadow-black/30"
+              >
+                {(Object.keys(commentSortLabels) as CommentSortOption[]).map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={sortBy === option}
+                    onClick={() => {
+                      setSortBy(option);
+                      setIsDropdownOpen(false);
+                    }}
+                    className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-[#3f3f3f] ${
+                      sortBy === option ? 'text-white' : 'text-gray-300'
+                    }`}
+                  >
+                    {commentSortLabels[option]}
+                    {sortBy === option && <span aria-hidden="true" className="text-primary-light">✓</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       <div className="rounded-2xl border border-white/10 bg-[#1a1c23] p-4 sm:p-5">
@@ -1507,7 +1605,7 @@ export default function CommentSection({ animeId, episodeId = null, title }: Com
               No se pudieron actualizar los comentarios: {commentsError}
             </p>
           )}
-          {comments.map((comment) => (
+          {sortedComments.map((comment) => (
             <CommentItem
               key={comment.id}
               comment={comment}
