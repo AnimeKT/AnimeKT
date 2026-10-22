@@ -1,5 +1,6 @@
 import bigInt from 'big-integer';
 import { Buffer } from 'buffer';
+import localforage from 'localforage';
 import { utils } from 'telegram';
 import type { TelegramClient } from 'telegram/client/TelegramClient';
 import { CustomFile } from 'telegram/client/uploads';
@@ -69,6 +70,27 @@ export type RecentCommentAnimeInfo = {
   topicsDub: number[];
 };
 
+const avatarMemoryCache = new Map<string, string>();
+const avatarRequestCache = new Map<string, Promise<string | null>>();
+const avatarCachePrefix = 'telegram_avatar_blob_v1:';
+const AVATAR_MEMORY_CACHE_LIMIT = 200;
+
+function cacheAvatarUrl(userId: string, url: string) {
+  const previousUrl = avatarMemoryCache.get(userId);
+  if (previousUrl && previousUrl !== url) URL.revokeObjectURL(previousUrl);
+  avatarMemoryCache.delete(userId);
+  avatarMemoryCache.set(userId, url);
+
+  if (avatarMemoryCache.size > AVATAR_MEMORY_CACHE_LIMIT) {
+    const oldestKey = avatarMemoryCache.keys().next();
+    if (!oldestKey.done) {
+      const oldestUrl = avatarMemoryCache.get(oldestKey.value);
+      avatarMemoryCache.delete(oldestKey.value);
+      if (oldestUrl) URL.revokeObjectURL(oldestUrl);
+    }
+  }
+}
+
 const markerPrefix = '\u2063\u200D';
 const markerSuffix = '\u2063';
 const markerBitZero = '\u200B';
@@ -121,6 +143,60 @@ export async function getProfilePic(
   client: TelegramClient,
   userId: string,
 ): Promise<string | null> {
+  const cachedUrl = avatarMemoryCache.get(userId);
+  if (cachedUrl) {
+    avatarMemoryCache.delete(userId);
+    avatarMemoryCache.set(userId, cachedUrl);
+    return cachedUrl;
+  }
+  const existingRequest = avatarRequestCache.get(userId);
+  if (existingRequest) return existingRequest;
+
+  const request = (async () => {
+    const cacheKey = `${avatarCachePrefix}${userId}`;
+    try {
+      const cachedBlob = await localforage.getItem<Blob>(cacheKey);
+      if (cachedBlob instanceof Blob && cachedBlob.size > 0) {
+        const objectUrl = URL.createObjectURL(cachedBlob);
+        cacheAvatarUrl(userId, objectUrl);
+        return objectUrl;
+      }
+    } catch (cacheError: unknown) {
+      console.error(`No se pudo leer la caché del avatar ${userId}.`, cacheError);
+    }
+
+    const freshUrl = await downloadProfilePic(client, userId);
+    if (!freshUrl) return null;
+    cacheAvatarUrl(userId, freshUrl);
+    try {
+      const response = await fetch(freshUrl);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      await localforage.setItem(cacheKey, await response.blob());
+    } catch (cacheError: unknown) {
+      console.error(`No se pudo guardar la caché del avatar ${userId}.`, cacheError);
+    }
+    return freshUrl;
+  })();
+  avatarRequestCache.set(userId, request);
+  try {
+    return await request;
+  } finally {
+    avatarRequestCache.delete(userId);
+  }
+}
+
+export function getCachedProfilePicUrl(userId: string): string | null {
+  const cachedUrl = avatarMemoryCache.get(userId);
+  if (!cachedUrl) return null;
+  avatarMemoryCache.delete(userId);
+  avatarMemoryCache.set(userId, cachedUrl);
+  return cachedUrl;
+}
+
+async function downloadProfilePic(
+  client: TelegramClient,
+  userId: string,
+): Promise<string | null> {
   const parsedUserId = utils.parseID(userId);
   if (!parsedUserId) return null;
 
@@ -131,6 +207,19 @@ export async function getProfilePic(
   if (!photo || typeof photo === 'string' || photo.length === 0) return null;
 
   const blob = new Blob([Uint8Array.from(photo)], { type: 'image/jpeg' });
+  return URL.createObjectURL(blob);
+}
+
+async function getCommentMediaUrl(
+  client: TelegramClient,
+  message: Api.Message,
+  mimeType: string,
+): Promise<string | null> {
+  const downloadedMedia = await client.downloadMedia(message);
+  if (!downloadedMedia || typeof downloadedMedia === 'string' || downloadedMedia.length === 0) {
+    return null;
+  }
+  const blob = new Blob([Uint8Array.from(downloadedMedia)], { type: mimeType });
   return URL.createObjectURL(blob);
 }
 
@@ -683,15 +772,11 @@ export async function fetchComments(
           message.media.document.mimeType.startsWith('image/'))
       ) {
         try {
-          const downloadedMedia = await client.downloadMedia(message);
-          if (downloadedMedia && typeof downloadedMedia !== 'string' && downloadedMedia.length > 0) {
-            const mimeType = message.media instanceof Api.MessageMediaDocument &&
+          const mimeType = message.media instanceof Api.MessageMediaDocument &&
               message.media.document instanceof Api.Document
               ? message.media.document.mimeType
               : 'image/jpeg';
-            const blob = new Blob([Uint8Array.from(downloadedMedia)], { type: mimeType });
-            mediaUrl = URL.createObjectURL(blob);
-          }
+          mediaUrl = await getCommentMediaUrl(client, message, mimeType);
         } catch (mediaError) {
           const messageText = mediaError instanceof Error ? mediaError.message : String(mediaError);
           console.warn('Media omitida por desconexión:', messageText);

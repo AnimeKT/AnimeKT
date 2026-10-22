@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { useSharedAnimeData } from '@/context/AnimeDataContext';
 import { useTelegram } from '@/context/TelegramContext';
 import { useRecentCommentActivity } from '@/hooks/useRecentCommentActivity';
+import { getCachedProfilePicUrl } from '@/lib/telegramComments';
 import type { RecentCommentActivity } from '@/lib/telegramComments';
 
 function formatRelativeTime(timestamp: number) {
@@ -20,23 +21,21 @@ function formatRelativeTime(timestamp: number) {
 
 function ActivityAvatar({ activity }: { activity: RecentCommentActivity }) {
   const { getProfilePic } = useTelegram();
-  const [profileUrl, setProfileUrl] = useState<string | null>(null);
+  const [profileUrl, setProfileUrl] = useState<string | null>(
+    () => getCachedProfilePicUrl(activity.userId),
+  );
 
   useEffect(() => {
     let cancelled = false;
-    let loadedUrl: string | null = null;
     void getProfilePic(activity.userId).then((url) => {
       if (!url) return;
-      loadedUrl = url;
-      if (cancelled) URL.revokeObjectURL(url);
-      else setProfileUrl(url);
+      if (!cancelled) setProfileUrl(url);
     }).catch((error: unknown) => {
       console.error(`No se pudo cargar el avatar de ${activity.username}.`, error);
     });
 
     return () => {
       cancelled = true;
-      if (loadedUrl) URL.revokeObjectURL(loadedUrl);
     };
   }, [activity.userId, activity.username, getProfilePic]);
 

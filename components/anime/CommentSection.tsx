@@ -10,6 +10,7 @@ import type {
   TelegramCommentDraftBlock,
 } from '@/lib/telegramComments';
 import { buildCommentThreadHashtag } from '@/lib/commentThread';
+import { getCachedProfilePicUrl } from '@/lib/telegramComments';
 
 type Comment = TelegramComment;
 type CommentSortOption = 'recientes' | 'antiguos' | 'populares' | 'respuestas';
@@ -311,23 +312,21 @@ function normalizeDraftBlocks(blocks: TelegramCommentDraftBlock[]): TelegramComm
 
 function CommentAvatar({ comment }: { comment: Comment }) {
   const { getProfilePic } = useTelegram();
-  const [profileUrl, setProfileUrl] = useState<string | null>(null);
+  const [profileUrl, setProfileUrl] = useState<string | null>(
+    () => getCachedProfilePicUrl(comment.userId),
+  );
 
   useEffect(() => {
     let cancelled = false;
-    let loadedUrl: string | null = null;
     void getProfilePic(comment.userId).then((url) => {
       if (!url) return;
-      loadedUrl = url;
-      if (cancelled) URL.revokeObjectURL(url);
-      else setProfileUrl(url);
+      if (!cancelled) setProfileUrl(url);
     }).catch((error: unknown) => {
       console.error(`No se pudo cargar el avatar de ${comment.username}.`, error);
     });
 
     return () => {
       cancelled = true;
-      if (loadedUrl) URL.revokeObjectURL(loadedUrl);
     };
   }, [comment.userId, comment.username, getProfilePic]);
 
@@ -1232,6 +1231,18 @@ export default function CommentSection({ animeId, episodeId = null, title }: Com
   }, [isDropdownOpen]);
 
   useEffect(() => {
+    if (isLoadingComments || !window.location.hash.startsWith('#comment-')) return;
+    const commentId = decodeURIComponent(window.location.hash.slice('#comment-'.length));
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById(`comment-${commentId}`)?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [comments, isLoadingComments]);
+
+  useEffect(() => {
     const currentUrls = new Set<string>();
     const collectMediaUrls = (items: Comment[]) => items.forEach((comment) => {
       comment.mediaUrls.forEach((url) => currentUrls.add(url));
@@ -1244,18 +1255,6 @@ export default function CommentSection({ animeId, episodeId = null, title }: Com
     });
     commentMediaUrlsRef.current = currentUrls;
   }, [comments]);
-
-  useEffect(() => {
-    if (isLoadingComments || !window.location.hash.startsWith('#comment-')) return;
-    const commentId = decodeURIComponent(window.location.hash.slice('#comment-'.length));
-    const frame = window.requestAnimationFrame(() => {
-      document.getElementById(`comment-${commentId}`)?.scrollIntoView({
-        behavior: 'smooth',
-        block: 'center',
-      });
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [comments, isLoadingComments]);
 
   useEffect(() => () => {
     commentMediaUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
