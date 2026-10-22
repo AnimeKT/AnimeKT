@@ -15,6 +15,15 @@ type CachedAnimeData = Omit<AnimeData, 'message' | 'heroMessage'>;
 
 const ANIME_CATALOG_CACHE_KEY = 'anime_catalog_swr_v1';
 const REVALIDATE_INTERVAL_MS = 60_000;
+const animeCatalogMemoryCache = new Map<string, CachedAnimeData[]>();
+
+function toCachedAnimeData(animes: AnimeData[]): CachedAnimeData[] {
+  return animes.map(({ message: _message, heroMessage: _heroMessage, ...anime }) => anime);
+}
+
+function withCachedCatalog(cache: CachedAnimeData[]): AnimeData[] {
+  return cache.map((anime) => ({ ...anime }));
+}
 
 function normalize(text: string) {
   return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -155,7 +164,9 @@ export function parseAnimeMessages(messages: TelegramAnimeMessage[]): AnimeData[
 
 export function useAnimeData() {
   const { client, isLoading: isTelegramLoading } = useTelegram();
-  const [animes, setAnimes] = useState<AnimeData[]>([]);
+  const [animes, setAnimes] = useState<AnimeData[]>(() =>
+    withCachedCatalog(animeCatalogMemoryCache.get(ANIME_CATALOG_CACHE_KEY) ?? []),
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -176,11 +187,12 @@ export function useAnimeData() {
       });
       if (isCancelled()) return;
       const freshAnimes = parseAnimeMessages(messages);
+      const cache = toCachedAnimeData(freshAnimes);
+      animeCatalogMemoryCache.set(ANIME_CATALOG_CACHE_KEY, cache);
       setAnimes(freshAnimes);
       setError(null);
       setIsLoading(false);
 
-      const cache: CachedAnimeData[] = freshAnimes.map(({ message: _message, heroMessage: _heroMessage, ...anime }) => anime);
       try {
         await localforage.setItem(ANIME_CATALOG_CACHE_KEY, cache);
       } catch (cacheError: unknown) {
@@ -209,32 +221,41 @@ export function useAnimeData() {
       if (document.visibilityState === 'visible') void refresh();
     };
 
-    void localforage.getItem<CachedAnimeData[]>(ANIME_CATALOG_CACHE_KEY)
-      .then((cached) => {
-        if (cancelled || !Array.isArray(cached)) return;
-        const validCache = cached.filter((anime) =>
-          typeof anime.id === 'string' &&
-          typeof anime.messageId === 'number' &&
-          typeof anime.heroMessageId === 'number' &&
-          typeof anime.title === 'string',
-        );
-        if (validCache.length > 0) setAnimes(validCache);
-      })
-      .catch((cacheError: unknown) => {
-        console.error('No se pudo leer la caché del catálogo de anime.', cacheError);
-      })
-      .finally(() => {
-        if (cancelled) return;
-        if (!client && !isTelegramLoading) {
-          setIsLoading(false);
-          setError('No hay una sesión de Telegram activa. Vuelve a iniciar sesión.');
-          return;
-        }
-        void refresh();
-        refreshTimer = window.setInterval(() => void refresh(), REVALIDATE_INTERVAL_MS);
-        window.addEventListener('focus', onVisibilityChange);
-        document.addEventListener('visibilitychange', onVisibilityChange);
-      });
+    const startRevalidation = () => {
+      if (cancelled) return;
+      if (!client && !isTelegramLoading) {
+        setIsLoading(false);
+        setError('No hay una sesión de Telegram activa. Vuelve a iniciar sesión.');
+        return;
+      }
+      void refresh();
+      refreshTimer = window.setInterval(() => void refresh(), REVALIDATE_INTERVAL_MS);
+      window.addEventListener('focus', onVisibilityChange);
+      document.addEventListener('visibilitychange', onVisibilityChange);
+    };
+
+    if (animeCatalogMemoryCache.has(ANIME_CATALOG_CACHE_KEY)) {
+      startRevalidation();
+    } else {
+      void localforage.getItem<CachedAnimeData[]>(ANIME_CATALOG_CACHE_KEY)
+        .then((cached) => {
+          if (cancelled || !Array.isArray(cached)) return;
+          const validCache = cached.filter((anime) =>
+            typeof anime.id === 'string' &&
+            typeof anime.messageId === 'number' &&
+            typeof anime.heroMessageId === 'number' &&
+            typeof anime.title === 'string',
+          );
+          if (validCache.length > 0 && !animeCatalogMemoryCache.has(ANIME_CATALOG_CACHE_KEY)) {
+            animeCatalogMemoryCache.set(ANIME_CATALOG_CACHE_KEY, validCache);
+            setAnimes(withCachedCatalog(validCache));
+          }
+        })
+        .catch((cacheError: unknown) => {
+          console.error('No se pudo leer la caché del catálogo de anime.', cacheError);
+        })
+        .finally(startRevalidation);
+    }
 
     return () => {
       cancelled = true;

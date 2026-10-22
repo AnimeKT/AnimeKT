@@ -16,6 +16,14 @@ type CachedRecentMedia = {
   mimeType?: string;
 };
 
+type RecentEpisodeMediaMemory = {
+  url: string;
+  mimeType: string;
+  mediaVersion: string;
+};
+
+const recentEpisodeMediaMemoryCache = new Map<number, RecentEpisodeMediaMemory>();
+
 function getMediaVersion(media: Api.TypeMessageMedia | undefined) {
   if (media instanceof Api.MessageMediaPhoto && media.photo instanceof Api.Photo) {
     return media.photo.id.toString();
@@ -33,20 +41,30 @@ type RecentEpisodeCardProps = {
 
 export default function RecentEpisodeCard({ episode, isLat }: RecentEpisodeCardProps) {
   const { client } = useTelegram();
-  const [mediaUrl, setMediaUrl] = useState<string | null>(null);
-  const [mediaType, setMediaType] = useState('');
+  const [mediaState, setMediaState] = useState(() => {
+    const cached = recentEpisodeMediaMemoryCache.get(episode.messageId);
+    return {
+      messageId: episode.messageId,
+      url: cached?.url ?? null,
+      type: cached?.mimeType ?? '',
+    };
+  });
 
   useEffect(() => {
     let cancelled = false;
-    let objectUrl: string | null = null;
     const media = episode.message?.media;
     const document = media instanceof Api.MessageMediaDocument &&
       media.document instanceof Api.Document
       ? media.document
       : null;
-
-    setMediaUrl(null);
-    setMediaType('');
+    const memoryMedia = recentEpisodeMediaMemoryCache.get(episode.messageId);
+    if (memoryMedia) {
+      setMediaState({
+        messageId: episode.messageId,
+        url: memoryMedia.url,
+        type: memoryMedia.mimeType,
+      });
+    }
     const loadMedia = async () => {
       let mediaBuffer: Uint8Array | Buffer | string | undefined;
       const cacheKey = `recent_media_${episode.messageId}`;
@@ -92,9 +110,13 @@ export default function RecentEpisodeCard({ episode, isLat }: RecentEpisodeCardP
       const blobBuffer = new ArrayBuffer(mediaBuffer.byteLength);
       new Uint8Array(blobBuffer).set(mediaBuffer);
       const blob = new Blob([blobBuffer], { type: mimeType });
-      objectUrl = URL.createObjectURL(blob);
-      setMediaType(mimeType);
-      setMediaUrl(objectUrl);
+      const url = URL.createObjectURL(blob);
+      recentEpisodeMediaMemoryCache.set(episode.messageId, {
+        url,
+        mimeType,
+        mediaVersion,
+      });
+      setMediaState({ messageId: episode.messageId, url, type: mimeType });
     };
 
     void loadMedia()
@@ -106,10 +128,11 @@ export default function RecentEpisodeCard({ episode, isLat }: RecentEpisodeCardP
 
     return () => {
       cancelled = true;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [client, episode.message, episode.messageId, episode.title]);
 
+  const mediaUrl = mediaState.messageId === episode.messageId ? mediaState.url : null;
+  const mediaType = mediaState.messageId === episode.messageId ? mediaState.type : '';
   const episodeHref = episode.anime.id === 'notification'
     ? `/ver/notification?fileId=${episode.fileId}&title=${encodeURIComponent(episode.title)}`
     : `/ver/${encodeURIComponent(episode.anime.id)}?fileId=${episode.fileId}`;

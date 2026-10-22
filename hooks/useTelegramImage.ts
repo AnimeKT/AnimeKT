@@ -13,6 +13,16 @@ type TelegramImageState = {
 };
 
 const pendingImages = new Map<string, Promise<Blob>>();
+const imageUrlMemoryCache = new Map<string, string>();
+
+function getCachedImageUrl(message?: TelegramAnimeMessage, messageId?: number) {
+  const id = message?.id ?? messageId;
+  if (!id) return null;
+  const cacheKey = message ? getImageCacheKey(message) : null;
+  return (cacheKey ? imageUrlMemoryCache.get(cacheKey) : undefined) ??
+    imageUrlMemoryCache.get(`catalog_img_${id}`) ??
+    null;
+}
 
 function getImageCacheKey(message: TelegramAnimeMessage) {
   const media = message.media;
@@ -29,15 +39,17 @@ export function useTelegramImage(
   messageId?: number,
 ): TelegramImageState {
   const { client } = useTelegram();
-  const [state, setState] = useState<TelegramImageState>({
-    imageUrl: null,
-    isLoading: Boolean(message || messageId),
-    error: null,
+  const [state, setState] = useState<TelegramImageState>(() => {
+    const cachedImageUrl = getCachedImageUrl(message, messageId);
+    return {
+      imageUrl: cachedImageUrl,
+      isLoading: Boolean((message || messageId) && !cachedImageUrl),
+      error: null,
+    };
   });
 
   useEffect(() => {
     let cancelled = false;
-    let objectUrl: string | null = null;
     const id = message?.id ?? messageId;
 
     if (!id) {
@@ -50,20 +62,41 @@ export function useTelegramImage(
     }
 
     const cacheKey = message ? getImageCacheKey(message) : null;
-    setState((current) => ({ ...current, isLoading: true, error: null }));
+    const legacyKey = `catalog_img_${id}`;
+    const memoryImageUrl = getCachedImageUrl(message, id);
+    const hasVersionedMemoryImage = Boolean(cacheKey && imageUrlMemoryCache.has(cacheKey));
+    if (memoryImageUrl) {
+      setState({ imageUrl: memoryImageUrl, isLoading: false, error: null });
+    } else {
+      setState((current) => ({ ...current, isLoading: true, error: null }));
+    }
+
+    const cacheBlobInMemory = (blob: Blob) => {
+      const imageUrl = URL.createObjectURL(blob);
+      if (cacheKey) imageUrlMemoryCache.set(cacheKey, imageUrl);
+      imageUrlMemoryCache.set(legacyKey, imageUrl);
+      if (!cancelled) {
+        setState({ imageUrl, isLoading: false, error: null });
+      }
+      return imageUrl;
+    };
 
     const loadImage = async () => {
-      const legacyKey = `catalog_img_${id}`;
-      const cachedBlob = cacheKey
-        ? await localforage.getItem<Blob>(cacheKey) ??
-          await localforage.getItem<Blob>(legacyKey)
-        : await localforage.getItem<Blob>(legacyKey);
+      if (hasVersionedMemoryImage) return;
+      let cachedBlob: Blob | null = null;
+      let hasVersionedCachedBlob = false;
+      if (!memoryImageUrl) {
+        if (cacheKey) {
+          cachedBlob = await localforage.getItem<Blob>(cacheKey);
+          hasVersionedCachedBlob = cachedBlob !== null;
+        }
+        if (!cachedBlob) cachedBlob = await localforage.getItem<Blob>(legacyKey);
+      }
 
       if (cachedBlob) {
         if (cancelled) return;
-        objectUrl = URL.createObjectURL(cachedBlob);
-        setState({ imageUrl: objectUrl, isLoading: Boolean(message && !client), error: null });
-        if (!message || !client) return;
+        cacheBlobInMemory(cachedBlob);
+        if (!message || !client || hasVersionedCachedBlob) return;
       }
 
       if (!message || !client) {
@@ -78,7 +111,6 @@ export function useTelegramImage(
           if (!media || typeof media === 'string') {
             throw new Error(`Telegram no devolvió una imagen válida para el mensaje ${message.id}.`);
           }
-
           const blob = new Blob([Uint8Array.from(media)], { type: 'image/jpeg' });
           try {
             await localforage.setItem(cacheKey!, blob);
@@ -92,9 +124,7 @@ export function useTelegramImage(
       }
 
       try {
-        const freshBlob = await pendingDownload;
-        if (cachedBlob && freshBlob === cachedBlob) return;
-        return freshBlob;
+        return await pendingDownload;
       } finally {
         if (pendingImages.get(cacheKey!) === pendingDownload) pendingImages.delete(cacheKey!);
       }
@@ -103,9 +133,7 @@ export function useTelegramImage(
     void loadImage()
       .then((blob) => {
         if (cancelled || !blob) return;
-        if (objectUrl) URL.revokeObjectURL(objectUrl);
-        objectUrl = URL.createObjectURL(blob);
-        setState({ imageUrl: objectUrl, isLoading: false, error: null });
+        cacheBlobInMemory(blob);
       })
       .catch((loadError: unknown) => {
         if (cancelled) return;
@@ -118,7 +146,6 @@ export function useTelegramImage(
 
     return () => {
       cancelled = true;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [client, message, messageId]);
 

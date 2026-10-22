@@ -28,6 +28,14 @@ export type RecentEpisode = {
 };
 
 type CachedRecentEpisode = Omit<RecentEpisode, 'message'>;
+const recentEpisodesMemoryCache = new Map<string, CachedRecentEpisode[]>();
+
+function withCurrentRelativeTimes(episodes: CachedRecentEpisode[]): RecentEpisode[] {
+  return episodes.map((episode) => ({
+    ...episode,
+    relativeTime: formatRelativeTime(new Date(episode.publishedAt)),
+  }));
+}
 
 function normalizeText(text: string) {
   return text
@@ -156,8 +164,12 @@ function createNotificationAnime(title: string, message: TelegramAnimeMessage): 
 export function useRecentEpisodes() {
   const { animes, isLoading: isAnimeLoading } = useSharedAnimeData();
   const { client, isLoading: isTelegramLoading } = useTelegram();
-  const [episodes, setEpisodes] = useState<RecentEpisode[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [episodes, setEpisodes] = useState<RecentEpisode[]>(() =>
+    withCurrentRelativeTimes(recentEpisodesMemoryCache.get(RECENT_EPISODES_CACHE_KEY) ?? []),
+  );
+  const [isLoading, setIsLoading] = useState(() =>
+    !recentEpisodesMemoryCache.has(RECENT_EPISODES_CACHE_KEY),
+  );
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -215,6 +227,7 @@ export function useRecentEpisodes() {
         const cache: CachedRecentEpisode[] = recentEpisodes.map(
           ({ message: _message, ...episode }) => episode,
         );
+        recentEpisodesMemoryCache.set(RECENT_EPISODES_CACHE_KEY, cache);
         try {
           await localforage.setItem(RECENT_EPISODES_CACHE_KEY, cache);
         } catch (cacheError: unknown) {
@@ -233,35 +246,41 @@ export function useRecentEpisodes() {
       if (document.visibilityState === 'visible') void refresh();
     };
 
-    void localforage.getItem<CachedRecentEpisode[]>(RECENT_EPISODES_CACHE_KEY)
-      .then((cached) => {
-        if (cancelled || !Array.isArray(cached)) return;
-        const validCache = cached.filter((episode) =>
-          typeof episode.id === 'number' &&
-          typeof episode.fileId === 'number' &&
-          typeof episode.messageId === 'number' &&
-          typeof episode.title === 'string' &&
-          typeof episode.publishedAt === 'number' &&
-          episode.anime !== null &&
-          typeof episode.anime === 'object' &&
-          typeof episode.anime.id === 'string' &&
-          typeof episode.anime.title === 'string',
-        ).map((episode) => ({
-          ...episode,
-          relativeTime: formatRelativeTime(new Date(episode.publishedAt)),
-        }));
-        if (validCache.length > 0) setEpisodes(validCache);
-      })
-      .catch((cacheError: unknown) => {
-        console.error('No se pudo leer la caché de episodios recientes.', cacheError);
-      })
-      .finally(() => {
-        if (cancelled) return;
-        void refresh();
-        refreshTimer = window.setInterval(() => void refresh(), REVALIDATE_INTERVAL_MS);
-        window.addEventListener('focus', onVisibilityChange);
-        document.addEventListener('visibilitychange', onVisibilityChange);
-      });
+    const startRevalidation = () => {
+      if (cancelled) return;
+      void refresh();
+      refreshTimer = window.setInterval(() => void refresh(), REVALIDATE_INTERVAL_MS);
+      window.addEventListener('focus', onVisibilityChange);
+      document.addEventListener('visibilitychange', onVisibilityChange);
+    };
+
+    if (recentEpisodesMemoryCache.has(RECENT_EPISODES_CACHE_KEY)) {
+      startRevalidation();
+    } else {
+      void localforage.getItem<CachedRecentEpisode[]>(RECENT_EPISODES_CACHE_KEY)
+        .then((cached) => {
+          if (cancelled || !Array.isArray(cached)) return;
+          const validCache = cached.filter((episode) =>
+            typeof episode.id === 'number' &&
+            typeof episode.fileId === 'number' &&
+            typeof episode.messageId === 'number' &&
+            typeof episode.title === 'string' &&
+            typeof episode.publishedAt === 'number' &&
+            episode.anime !== null &&
+            typeof episode.anime === 'object' &&
+            typeof episode.anime.id === 'string' &&
+            typeof episode.anime.title === 'string',
+          );
+          if (validCache.length > 0 && !recentEpisodesMemoryCache.has(RECENT_EPISODES_CACHE_KEY)) {
+            recentEpisodesMemoryCache.set(RECENT_EPISODES_CACHE_KEY, validCache);
+            setEpisodes(withCurrentRelativeTimes(validCache));
+          }
+        })
+        .catch((cacheError: unknown) => {
+          console.error('No se pudo leer la caché de episodios recientes.', cacheError);
+        })
+        .finally(startRevalidation);
+    }
 
     return () => {
       cancelled = true;
