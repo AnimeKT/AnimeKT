@@ -21,6 +21,7 @@ type AnimeCardProps = {
   isFavorite?: boolean;
   onToggleFavorite?: (id: string) => void;
   message?: TelegramAnimeMessage;
+  messageId?: number;
 };
 
 function BookmarkIcon({ filled }: { filled: boolean }) {
@@ -56,9 +57,10 @@ export default function AnimeCard({
   isFavorite = false,
   onToggleFavorite,
   message,
+  messageId,
 }: AnimeCardProps) {
   const ratioClass = aspectRatio === 'landscape' ? 'aspect-video' : 'aspect-[2/3]';
-  const { imageUrl: telegramImageUrl } = useTelegramImage(message);
+  const { imageUrl: telegramImageUrl } = useTelegramImage(message, messageId);
   const cardHref = href ?? `/anime/${encodeURIComponent(id)}`;
   const [favorite, setFavorite] = useState(isFavorite);
 

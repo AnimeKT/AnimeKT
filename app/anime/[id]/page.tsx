@@ -45,11 +45,13 @@ export default function AnimeCoverPage() {
   const { animes, isLoading: isLoadingAnime } = useSharedAnimeData();
   const { client, isLoading: isTelegramLoading } = useTelegram();
   const anime = useMemo(
-    () => animes.find((item) => item.id === id || item.message.id === Number(id) || item.heroMessage.id === Number(id)),
+    () => animes.find((item) =>
+      item.id === id || item.messageId === Number(id) || item.heroMessageId === Number(id),
+    ),
     [animes, id],
   );
-  const { imageUrl } = useTelegramImage(anime?.message);
-  const { imageUrl: bannerImageUrl } = useTelegramImage(anime?.heroMessage);
+  const { imageUrl } = useTelegramImage(anime?.message, anime?.messageId);
+  const { imageUrl: bannerImageUrl } = useTelegramImage(anime?.heroMessage, anime?.heroMessageId);
   const [episodes, setEpisodes] = useState<EpisodeLink[]>([]);
   const [selectedLanguage, setSelectedLanguage] = useState<'Sub' | 'Dub'>('Sub');
   const [selectedSeasonKey, setSelectedSeasonKey] = useState('');
@@ -101,14 +103,18 @@ export default function AnimeCoverPage() {
 
   useEffect(() => {
     let cancelled = false;
+    let isRefreshing = false;
+    let refreshTimer: number | undefined;
     if (!client || !anime || !selectedSeason) {
       setEpisodes([]);
       setError(null);
       return;
     }
 
-    const loadEpisodes = async () => {
-      setIsLoadingEpisodes(true);
+    const loadEpisodes = async (initial = false) => {
+      if (isRefreshing) return;
+      isRefreshing = true;
+      if (initial) setIsLoadingEpisodes(true);
       setError(null);
       try {
         await client.connect();
@@ -128,12 +134,23 @@ export default function AnimeCoverPage() {
         if (!cancelled) setError(loadError instanceof Error ? loadError.message : String(loadError));
       } finally {
         if (!cancelled) setIsLoadingEpisodes(false);
+        isRefreshing = false;
       }
     };
 
-    void loadEpisodes();
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') void loadEpisodes();
+    };
+
+    void loadEpisodes(true);
+    refreshTimer = window.setInterval(() => void loadEpisodes(), 60_000);
+    window.addEventListener('focus', refreshWhenVisible);
+    document.addEventListener('visibilitychange', refreshWhenVisible);
     return () => {
       cancelled = true;
+      if (refreshTimer !== undefined) window.clearInterval(refreshTimer);
+      window.removeEventListener('focus', refreshWhenVisible);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
     };
   }, [anime, client, selectedSeason]);
 

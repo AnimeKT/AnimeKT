@@ -4,8 +4,10 @@ export type TelegramAnimeMessage = Api.Message;
 
 export type AnimeData = {
   id: string;
-  message: TelegramAnimeMessage;
-  heroMessage: TelegramAnimeMessage;
+  messageId: number;
+  heroMessageId: number;
+  message?: TelegramAnimeMessage;
+  heroMessage?: TelegramAnimeMessage;
   title: string;
   alternativeTitles: string;
   meta: string;

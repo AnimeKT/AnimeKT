@@ -12,7 +12,19 @@ const THREE_MONTHS_MS = 90 * 24 * 60 * 60 * 1000;
 type CachedRecentMedia = {
   buffer: Uint8Array;
   timestamp: number;
+  mediaVersion?: string;
+  mimeType?: string;
 };
+
+function getMediaVersion(media: Api.TypeMessageMedia | undefined) {
+  if (media instanceof Api.MessageMediaPhoto && media.photo instanceof Api.Photo) {
+    return media.photo.id.toString();
+  }
+  if (media instanceof Api.MessageMediaDocument && media.document instanceof Api.Document) {
+    return media.document.id.toString();
+  }
+  return '';
+}
 
 type RecentEpisodeCardProps = {
   episode: RecentEpisode;
@@ -27,7 +39,7 @@ export default function RecentEpisodeCard({ episode, isLat }: RecentEpisodeCardP
   useEffect(() => {
     let cancelled = false;
     let objectUrl: string | null = null;
-    const media = episode.message.media;
+    const media = episode.message?.media;
     const document = media instanceof Api.MessageMediaDocument &&
       media.document instanceof Api.Document
       ? media.document
@@ -35,43 +47,39 @@ export default function RecentEpisodeCard({ episode, isLat }: RecentEpisodeCardP
 
     setMediaUrl(null);
     setMediaType('');
-    if (!client || !media) return;
-
     const loadMedia = async () => {
       let mediaBuffer: Uint8Array | Buffer | string | undefined;
-      const hasPhoto = media.className === 'MessageMediaPhoto' || 'photo' in media;
-      const hasDocument = media.className === 'MessageMediaDocument' || 'document' in media;
+      const cacheKey = `recent_media_${episode.messageId}`;
+      const mediaVersion = getMediaVersion(media);
+      const hasSupportedMedia = media instanceof Api.MessageMediaPhoto ||
+        media instanceof Api.MessageMediaDocument;
+      let cachedData: CachedRecentMedia | null = null;
+      try {
+        cachedData = await localforage.getItem<CachedRecentMedia>(cacheKey);
+      } catch (cacheError: unknown) {
+        console.error(`No se pudo leer la caché del media de ${episode.title}.`, cacheError);
+      }
 
-      if (hasPhoto || hasDocument) {
-        const cacheKey = `recent_media_${episode.message.id}`;
-        try {
-          const cachedData = await localforage.getItem<CachedRecentMedia>(cacheKey);
-          if (
-            cachedData?.buffer &&
-            cachedData.timestamp &&
-            Date.now() - cachedData.timestamp < THREE_MONTHS_MS
-          ) {
-            mediaBuffer = cachedData.buffer;
-          } else {
-            if (cachedData) await localforage.removeItem(cacheKey);
-            const downloadedMedia = await client.downloadMedia(episode.message);
-            if (downloadedMedia && typeof downloadedMedia !== 'string') {
-              mediaBuffer = Uint8Array.from(downloadedMedia);
-              try {
-                await localforage.setItem<CachedRecentMedia>(cacheKey, {
-                  buffer: mediaBuffer,
-                  timestamp: Date.now(),
-                });
-              } catch (cacheError: unknown) {
-                console.error(`No se pudo guardar en caché el media de ${episode.title}.`, cacheError);
-              }
-            }
-          }
-        } catch (cacheError: unknown) {
-          console.error(`No se pudo leer la caché del media de ${episode.title}.`, cacheError);
-          const downloadedMedia = await client.downloadMedia(episode.message);
-          if (downloadedMedia && typeof downloadedMedia !== 'string') {
-            mediaBuffer = Uint8Array.from(downloadedMedia);
+      const cacheIsFresh = cachedData?.buffer &&
+        (!episode.message || (
+          cachedData.mediaVersion === mediaVersion &&
+          Date.now() - cachedData.timestamp < THREE_MONTHS_MS
+        ));
+      if (cacheIsFresh && cachedData?.buffer) {
+        mediaBuffer = cachedData.buffer;
+      } else if (client && episode.message && hasSupportedMedia) {
+        const downloadedMedia = await client.downloadMedia(episode.message);
+        if (downloadedMedia && typeof downloadedMedia !== 'string') {
+          mediaBuffer = Uint8Array.from(downloadedMedia);
+          try {
+            await localforage.setItem<CachedRecentMedia>(cacheKey, {
+              buffer: mediaBuffer,
+              timestamp: Date.now(),
+              mediaVersion,
+              mimeType: document?.mimeType || 'image/jpeg',
+            });
+          } catch (cacheError: unknown) {
+            console.error(`No se pudo guardar en caché el media de ${episode.title}.`, cacheError);
           }
         }
       }
@@ -80,7 +88,7 @@ export default function RecentEpisodeCard({ episode, isLat }: RecentEpisodeCardP
         return;
       }
 
-      const mimeType = document?.mimeType || 'image/jpeg';
+      const mimeType = document?.mimeType || cachedData?.mimeType || 'image/jpeg';
       const blobBuffer = new ArrayBuffer(mediaBuffer.byteLength);
       new Uint8Array(blobBuffer).set(mediaBuffer);
       const blob = new Blob([blobBuffer], { type: mimeType });
@@ -100,7 +108,7 @@ export default function RecentEpisodeCard({ episode, isLat }: RecentEpisodeCardP
       cancelled = true;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [client, episode.message, episode.title]);
+  }, [client, episode.message, episode.messageId, episode.title]);
 
   const episodeHref = episode.anime.id === 'notification'
     ? `/ver/notification?fileId=${episode.fileId}&title=${encodeURIComponent(episode.title)}`

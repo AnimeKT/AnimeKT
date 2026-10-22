@@ -47,6 +47,7 @@ export default function AnimeCatalogGrid({ animes, isLoading }: AnimeCatalogGrid
           title={anime.title}
           imageUrl="/anime-placeholder.svg"
           message={anime.message}
+          messageId={anime.messageId}
           description={anime.synopsis}
           genres={anime.genres}
           alternativeTitles={anime.alternativeTitles}

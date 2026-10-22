@@ -19,7 +19,7 @@ export default function HeroBanner({ animes, loading = false }: HeroBannerProps)
   const featured = animes.filter((anime) => normalize(anime.status).includes('emision'));
   const [currentIndex, setCurrentIndex] = useState(0);
   const anime = featured[currentIndex % Math.max(featured.length, 1)];
-  const { imageUrl: telegramImageUrl } = useTelegramImage(anime?.heroMessage);
+  const { imageUrl: telegramImageUrl } = useTelegramImage(anime?.heroMessage, anime?.heroMessageId);
   const [isFavorite, setIsFavorite] = useState(false);
   const title = anime?.title ?? (loading ? 'Descubriendo historias...' : 'No hay anime en emisión');
   const description = anime?.synopsis ?? 'Los animes actualmente en emisión aparecerán aquí.';

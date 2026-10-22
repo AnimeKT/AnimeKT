@@ -173,11 +173,13 @@ export default function AnimePlayerPage() {
           limit: 500,
         });
         const catalogAnime = parseAnimeMessages(catalogMessages).find(
-          (item) => item.message.id === messageId || item.heroMessage.id === messageId,
+          (item) => item.messageId === messageId || item.heroMessageId === messageId,
         );
         const parsedAnime = catalogAnime ?? {
           ...extractAnimeData(getTelegramMessageText(selectedMessage)),
           id: String(messageId),
+          messageId: selectedMessage.id,
+          heroMessageId: selectedMessage.id,
           message: selectedMessage,
           heroMessage: selectedMessage,
         };
@@ -202,7 +204,7 @@ export default function AnimePlayerPage() {
 
         if (cancelled) return;
         setAnime(parsedAnime);
-        setBannerMessage(parsedAnime.heroMessage);
+        setBannerMessage(parsedAnime.heroMessage ?? selectedMessage);
         setLanguage(initialLanguage);
         setSelectedTopicId(initialTopic);
         setStartTime(progress?.tiempo ?? 0);

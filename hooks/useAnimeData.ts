@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import localforage from 'localforage';
 import { Api } from 'telegram/tl';
 import { useTelegram } from '@/context/TelegramContext';
 import type { AnimeData, TelegramAnimeMessage } from '@/hooks/anime';
@@ -9,7 +10,11 @@ import { getTelegramMessageText } from '@/hooks/telegramMessageText';
 const GROUP_NAME = 'AnimeKT1';
 const TOPIC_ID = 16;
 
-type ParsedAnimeData = Omit<AnimeData, 'id' | 'message' | 'heroMessage'>;
+type ParsedAnimeData = Omit<AnimeData, 'id' | 'messageId' | 'heroMessageId' | 'message' | 'heroMessage'>;
+type CachedAnimeData = Omit<AnimeData, 'message' | 'heroMessage'>;
+
+const ANIME_CATALOG_CACHE_KEY = 'anime_catalog_swr_v1';
+const REVALIDATE_INTERVAL_MS = 60_000;
 
 function normalize(text: string) {
   return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -138,6 +143,8 @@ export function parseAnimeMessages(messages: TelegramAnimeMessage[]): AnimeData[
 
     animes.push({
       id: String(message.id),
+      messageId: message.id,
+      heroMessageId: heroMessage.id,
       message,
       heroMessage,
       ...data,
@@ -152,38 +159,90 @@ export function useAnimeData() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const loadAnimes = useCallback(async (signal: AbortSignal) => {
+  const loadAnimes = useCallback(async (isCancelled: () => boolean) => {
     if (!client) {
-      setAnimes([]);
-      setError(isTelegramLoading ? null : 'No hay una sesión de Telegram activa. Vuelve a iniciar sesión.');
-      setIsLoading(isTelegramLoading);
+      if (!isTelegramLoading) {
+        setError('No hay una sesión de Telegram activa. Vuelve a iniciar sesión.');
+        setIsLoading(false);
+      }
       return;
     }
 
-    setIsLoading(true);
-    setError(null);
     try {
       await client.connect();
       const messages = await client.getMessages(GROUP_NAME, {
         replyTo: TOPIC_ID,
         limit: 500,
       });
-      if (signal.aborted) return;
-      setAnimes(parseAnimeMessages(messages));
+      if (isCancelled()) return;
+      const freshAnimes = parseAnimeMessages(messages);
+      setAnimes(freshAnimes);
+      setError(null);
+      setIsLoading(false);
+
+      const cache: CachedAnimeData[] = freshAnimes.map(({ message: _message, heroMessage: _heroMessage, ...anime }) => anime);
+      try {
+        await localforage.setItem(ANIME_CATALOG_CACHE_KEY, cache);
+      } catch (cacheError: unknown) {
+        console.error('No se pudo guardar la caché del catálogo de anime.', cacheError);
+      }
     } catch (loadError) {
-      if (signal.aborted) return;
+      if (isCancelled()) return;
       setError(loadError instanceof Error ? loadError.message : String(loadError));
-      setAnimes([]);
-    } finally {
-      if (!signal.aborted) setIsLoading(false);
+      setIsLoading(false);
     }
   }, [client, isTelegramLoading]);
 
   useEffect(() => {
-    const controller = new AbortController();
-    void loadAnimes(controller.signal);
-    return () => controller.abort();
-  }, [loadAnimes]);
+    let cancelled = false;
+    let refreshTimer: number | undefined;
+    let isRefreshing = false;
 
-  return { animes, isLoading, error };
+    const refresh = async () => {
+      if (isRefreshing) return;
+      isRefreshing = true;
+      await loadAnimes(() => cancelled);
+      isRefreshing = false;
+    };
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') void refresh();
+    };
+
+    void localforage.getItem<CachedAnimeData[]>(ANIME_CATALOG_CACHE_KEY)
+      .then((cached) => {
+        if (cancelled || !Array.isArray(cached)) return;
+        const validCache = cached.filter((anime) =>
+          typeof anime.id === 'string' &&
+          typeof anime.messageId === 'number' &&
+          typeof anime.heroMessageId === 'number' &&
+          typeof anime.title === 'string',
+        );
+        if (validCache.length > 0) setAnimes(validCache);
+      })
+      .catch((cacheError: unknown) => {
+        console.error('No se pudo leer la caché del catálogo de anime.', cacheError);
+      })
+      .finally(() => {
+        if (cancelled) return;
+        if (!client && !isTelegramLoading) {
+          setIsLoading(false);
+          setError('No hay una sesión de Telegram activa. Vuelve a iniciar sesión.');
+          return;
+        }
+        void refresh();
+        refreshTimer = window.setInterval(() => void refresh(), REVALIDATE_INTERVAL_MS);
+        window.addEventListener('focus', onVisibilityChange);
+        document.addEventListener('visibilitychange', onVisibilityChange);
+      });
+
+    return () => {
+      cancelled = true;
+      if (refreshTimer !== undefined) window.clearInterval(refreshTimer);
+      window.removeEventListener('focus', onVisibilityChange);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [client, isTelegramLoading, loadAnimes]);
+
+  return { animes, isLoading: isLoading && animes.length === 0, error };
 }

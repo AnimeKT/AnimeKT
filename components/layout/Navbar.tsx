@@ -16,6 +16,7 @@ export type NavbarSearchItem = {
   subtitle?: string;
   imageUrl?: string;
   message?: TelegramAnimeMessage;
+  messageId?: number;
 };
 
 type NavbarProps = {
@@ -30,7 +31,7 @@ const navigation = [
 ];
 
 function SearchResultLink({ item, onClick }: { item: NavbarSearchItem; onClick: () => void }) {
-  const { imageUrl: telegramImageUrl } = useTelegramImage(item.message);
+  const { imageUrl: telegramImageUrl } = useTelegramImage(item.message, item.messageId);
   const imageSrc = telegramImageUrl ?? item.imageUrl;
 
   return (
@@ -137,6 +138,7 @@ export default function Navbar({ searchItems = [], userName = 'Usuario' }: Navba
         title: anime.title,
         subtitle: anime.type,
         message: anime.message,
+        messageId: anime.messageId,
       }));
     if (animeResults.length > 0 || animes.length > 0) return animeResults;
     return searchItems

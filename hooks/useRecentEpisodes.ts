@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import localforage from 'localforage';
 import { useSharedAnimeData } from '@/context/AnimeDataContext';
 import { useTelegram } from '@/context/TelegramContext';
 import type { AnimeData, TelegramAnimeMessage } from '@/hooks/anime';
@@ -10,18 +11,23 @@ import { getTelegramMessageText } from '@/hooks/telegramMessageText';
 const NOTIFICATION_CHANNEL = 'AnimeKaergsty';
 const MAX_RECENT_EPISODES = 20;
 const RECENT_MESSAGE_SCAN_LIMIT = 500;
+const RECENT_EPISODES_CACHE_KEY = 'recent_episodes_swr_v1';
+const REVALIDATE_INTERVAL_MS = 60_000;
 
 export type RecentEpisode = {
   id: number;
   fileId: number;
-  message: TelegramAnimeMessage;
-  anime: AnimeData;
+  messageId: number;
+  message?: TelegramAnimeMessage;
+  anime: Pick<AnimeData, 'id' | 'title'>;
   title: string;
   isLat: boolean;
   label: string;
   publishedAt: number;
   relativeTime: string;
 };
+
+type CachedRecentEpisode = Omit<RecentEpisode, 'message'>;
 
 function normalizeText(text: string) {
   return text
@@ -139,6 +145,8 @@ function findAnimeByTitle(title: string, animes: AnimeData[]) {
 function createNotificationAnime(title: string, message: TelegramAnimeMessage): AnimeData {
   return {
     id: 'notification',
+    messageId: message.id,
+    heroMessageId: message.id,
     message,
     heroMessage: message,
     ...extractAnimeData(`Título: ${title}`),
@@ -154,30 +162,23 @@ export function useRecentEpisodes() {
 
   useEffect(() => {
     let cancelled = false;
+    let refreshTimer: number | undefined;
+    let isRefreshing = false;
 
-    if (isTelegramLoading || isAnimeLoading) {
-      setIsLoading(true);
-      return () => {
-        cancelled = true;
-      };
-    }
+    const refresh = async () => {
+      if (isRefreshing || isTelegramLoading || isAnimeLoading) return;
+      if (!client) {
+        setError('No hay una sesión de Telegram activa para cargar episodios recientes.');
+        setIsLoading(false);
+        return;
+      }
+      if (animes.length === 0) {
+        setError(null);
+        setIsLoading(false);
+        return;
+      }
 
-    if (!client) {
-      setEpisodes([]);
-      setError('No hay una sesión de Telegram activa para cargar episodios recientes.');
-      setIsLoading(false);
-      return;
-    }
-
-    if (animes.length === 0) {
-      setEpisodes([]);
-      setError(null);
-      setIsLoading(false);
-      return;
-    }
-
-    const loadEpisodes = async () => {
-      setIsLoading(true);
+      isRefreshing = true;
       setError(null);
       try {
         await client.connect();
@@ -197,8 +198,9 @@ export function useRecentEpisodes() {
           return [{
             id: message.id,
             fileId: parsed.fileId,
+            messageId: message.id,
             message,
-            anime,
+            anime: { id: anime.id, title: anime.title },
             title: parsed.title,
             isLat: parsed.isLat,
             label: parsed.label,
@@ -210,20 +212,64 @@ export function useRecentEpisodes() {
           .slice(0, MAX_RECENT_EPISODES);
 
         setEpisodes(recentEpisodes);
+        const cache: CachedRecentEpisode[] = recentEpisodes.map(
+          ({ message: _message, ...episode }) => episode,
+        );
+        try {
+          await localforage.setItem(RECENT_EPISODES_CACHE_KEY, cache);
+        } catch (cacheError: unknown) {
+          console.error('No se pudo guardar la caché de episodios recientes.', cacheError);
+        }
       } catch (loadError) {
         if (cancelled) return;
-        setEpisodes([]);
         setError(loadError instanceof Error ? loadError.message : String(loadError));
       } finally {
+        isRefreshing = false;
         if (!cancelled) setIsLoading(false);
       }
     };
 
-    void loadEpisodes();
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') void refresh();
+    };
+
+    void localforage.getItem<CachedRecentEpisode[]>(RECENT_EPISODES_CACHE_KEY)
+      .then((cached) => {
+        if (cancelled || !Array.isArray(cached)) return;
+        const validCache = cached.filter((episode) =>
+          typeof episode.id === 'number' &&
+          typeof episode.fileId === 'number' &&
+          typeof episode.messageId === 'number' &&
+          typeof episode.title === 'string' &&
+          typeof episode.publishedAt === 'number' &&
+          episode.anime !== null &&
+          typeof episode.anime === 'object' &&
+          typeof episode.anime.id === 'string' &&
+          typeof episode.anime.title === 'string',
+        ).map((episode) => ({
+          ...episode,
+          relativeTime: formatRelativeTime(new Date(episode.publishedAt)),
+        }));
+        if (validCache.length > 0) setEpisodes(validCache);
+      })
+      .catch((cacheError: unknown) => {
+        console.error('No se pudo leer la caché de episodios recientes.', cacheError);
+      })
+      .finally(() => {
+        if (cancelled) return;
+        void refresh();
+        refreshTimer = window.setInterval(() => void refresh(), REVALIDATE_INTERVAL_MS);
+        window.addEventListener('focus', onVisibilityChange);
+        document.addEventListener('visibilitychange', onVisibilityChange);
+      });
+
     return () => {
       cancelled = true;
+      if (refreshTimer !== undefined) window.clearInterval(refreshTimer);
+      window.removeEventListener('focus', onVisibilityChange);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
     };
   }, [animes, client, isAnimeLoading, isTelegramLoading]);
 
-  return { episodes, isLoading, error };
+  return { episodes, isLoading: isLoading && episodes.length === 0, error };
 }
