@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useSyncExternalStore } from 'react';
-import { supabase } from '@/lib/supabase';
+import { getSupabaseClient } from '@/lib/supabase';
 
 export type UserAnimeLists = {
   watchlist: string[];
@@ -118,7 +118,7 @@ function applyPendingMemberships(store: UserListsStore, lists: UserAnimeLists) {
 
 async function loadUserAnimeLists(userId: string, store: UserListsStore) {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await getSupabaseClient()
       .from('user_lists')
       .select('watchlist, favorites, watched')
       .eq('user_id', userId)
@@ -130,7 +130,7 @@ async function loadUserAnimeLists(userId: string, store: UserListsStore) {
     if (data) {
       lists = normalizeLists(data);
     } else {
-      const { error: insertError } = await supabase
+      const { error: insertError } = await getSupabaseClient()
         .from('user_lists')
         .upsert(
           { user_id: userId, ...EMPTY_LISTS },
@@ -138,7 +138,7 @@ async function loadUserAnimeLists(userId: string, store: UserListsStore) {
         );
       if (insertError) throw insertError;
 
-      const { data: initialized, error: readError } = await supabase
+      const { data: initialized, error: readError } = await getSupabaseClient()
         .from('user_lists')
         .select('watchlist, favorites, watched')
         .eq('user_id', userId)
@@ -220,7 +220,7 @@ export async function setAnimeInUserList(
     .then(async () => {
       await loadPromise;
       const lists = store.snapshot.lists;
-      const { error } = await supabase
+      const { error } = await getSupabaseClient()
         .from('user_lists')
         .upsert(
           {
