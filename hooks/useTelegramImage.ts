@@ -14,33 +14,70 @@ type TelegramImageState = {
 
 const pendingImages = new Map<string, Promise<Blob>>();
 const imageUrlMemoryCache = new Map<string, string>();
+let imageDownloadQueue: Promise<void> = Promise.resolve();
 
-function getCachedImageUrl(message?: TelegramAnimeMessage, messageId?: number) {
+function getCachedImageUrl(message?: TelegramAnimeMessage, messageId?: number, thumbnail = false) {
   const id = message?.id ?? messageId;
   if (!id) return null;
-  const cacheKey = message ? getImageCacheKey(message) : null;
+  const cacheKey = message ? getImageCacheKey(message, thumbnail) : null;
+  const legacyKey = thumbnail ? `catalog_thumb_v2_${id}` : `catalog_img_${id}`;
   return (cacheKey ? imageUrlMemoryCache.get(cacheKey) : undefined) ??
-    imageUrlMemoryCache.get(`catalog_img_${id}`) ??
+    imageUrlMemoryCache.get(legacyKey) ??
     null;
 }
 
-function getImageCacheKey(message: TelegramAnimeMessage) {
+function getImageCacheKey(message: TelegramAnimeMessage, thumbnail = false) {
   const media = message.media;
   const mediaId = media instanceof Api.MessageMediaPhoto && media.photo instanceof Api.Photo
     ? media.photo.id.toString()
     : media instanceof Api.MessageMediaDocument && media.document instanceof Api.Document
       ? media.document.id.toString()
       : 'unknown';
-  return `catalog_img_${message.id}_${mediaId}`;
+  return `catalog_img_${message.id}_${mediaId}${thumbnail ? '_thumb_v2' : ''}`;
+}
+
+function getMediaMimeType(message: TelegramAnimeMessage, isThumbnail = false) {
+  if (isThumbnail) return 'image/jpeg';
+  const media = message.media;
+  return media instanceof Api.MessageMediaDocument && media.document instanceof Api.Document
+    ? media.document.mimeType
+    : 'image/jpeg';
+}
+
+function getThumbnail(message: TelegramAnimeMessage): Api.TypePhotoSize | undefined {
+  const media = message.media;
+  const sizes = media instanceof Api.MessageMediaPhoto && media.photo instanceof Api.Photo
+    ? media.photo.sizes
+    : media instanceof Api.MessageMediaDocument && media.document instanceof Api.Document
+      ? media.document.thumbs ?? []
+      : [];
+  return sizes
+    .filter((size): size is Api.PhotoSize | Api.PhotoSizeProgressive | Api.PhotoCachedSize | Api.PhotoStrippedSize =>
+      size instanceof Api.PhotoSize ||
+      size instanceof Api.PhotoSizeProgressive ||
+      size instanceof Api.PhotoCachedSize ||
+      size instanceof Api.PhotoStrippedSize)
+    .reduce<Api.TypePhotoSize | undefined>((smallest, current) => {
+      if (!smallest) return current;
+      const area = (size: Api.TypePhotoSize) =>
+        size instanceof Api.PhotoSize ||
+        size instanceof Api.PhotoSizeProgressive ||
+        size instanceof Api.PhotoCachedSize
+          ? size.w * size.h
+          : Number.MAX_SAFE_INTEGER;
+      return area(current) < area(smallest) ? current : smallest;
+    }, undefined);
 }
 
 export function useTelegramImage(
   message?: TelegramAnimeMessage,
   messageId?: number,
+  options: { thumbnail?: boolean } = {},
 ): TelegramImageState {
   const { client } = useTelegram();
+  const isThumbnail = options.thumbnail ?? false;
   const [state, setState] = useState<TelegramImageState>(() => {
-    const cachedImageUrl = getCachedImageUrl(message, messageId);
+    const cachedImageUrl = getCachedImageUrl(message, messageId, isThumbnail);
     return {
       imageUrl: cachedImageUrl,
       isLoading: Boolean((message || messageId) && !cachedImageUrl),
@@ -61,9 +98,9 @@ export function useTelegramImage(
       return;
     }
 
-    const cacheKey = message ? getImageCacheKey(message) : null;
-    const legacyKey = `catalog_img_${id}`;
-    const memoryImageUrl = getCachedImageUrl(message, id);
+    const cacheKey = message ? getImageCacheKey(message, isThumbnail) : null;
+    const legacyKey = isThumbnail ? `catalog_thumb_v2_${id}` : `catalog_img_${id}`;
+    const memoryImageUrl = getCachedImageUrl(message, id, isThumbnail);
     const hasVersionedMemoryImage = Boolean(cacheKey && imageUrlMemoryCache.has(cacheKey));
     if (memoryImageUrl) {
       setState({ imageUrl: memoryImageUrl, isLoading: false, error: null });
@@ -72,6 +109,14 @@ export function useTelegramImage(
     }
 
     const cacheBlobInMemory = (blob: Blob) => {
+      const cachedUrl = cacheKey
+        ? imageUrlMemoryCache.get(cacheKey)
+        : imageUrlMemoryCache.get(legacyKey);
+      if (cachedUrl) {
+        if (!cancelled) setState({ imageUrl: cachedUrl, isLoading: false, error: null });
+        return cachedUrl;
+      }
+
       const imageUrl = URL.createObjectURL(blob);
       if (cacheKey) imageUrlMemoryCache.set(cacheKey, imageUrl);
       imageUrlMemoryCache.set(legacyKey, imageUrl);
@@ -106,12 +151,24 @@ export function useTelegramImage(
 
       let pendingDownload = pendingImages.get(cacheKey!);
       if (!pendingDownload) {
-        pendingDownload = (async () => {
-          const media = await client.downloadMedia(message);
-          if (!media || typeof media === 'string') {
-            throw new Error(`Telegram no devolvió una imagen válida para el mensaje ${message.id}.`);
+        const queuedDownload = imageDownloadQueue.then(async () => {
+          const thumbnail = isThumbnail ? getThumbnail(message) : undefined;
+          if (isThumbnail && !thumbnail) {
+            throw new Error(`Telegram no devolvió miniatura para el mensaje ${message.id}.`);
           }
-          const blob = new Blob([Uint8Array.from(media)], { type: 'image/jpeg' });
+          const media = await client.downloadMedia(
+            message,
+            thumbnail ? { thumb: thumbnail } : undefined,
+          );
+          if (!media || typeof media === 'string') {
+            throw new Error(`Telegram no devolvió un medio válido para el mensaje ${message.id}.`);
+          }
+          return new Blob([Uint8Array.from(media)], {
+            type: getMediaMimeType(message, Boolean(thumbnail)),
+          });
+        });
+        imageDownloadQueue = queuedDownload.then(() => undefined, () => undefined);
+        pendingDownload = queuedDownload.then(async (blob) => {
           try {
             await localforage.setItem(cacheKey!, blob);
             await localforage.setItem(legacyKey, blob);
@@ -119,7 +176,7 @@ export function useTelegramImage(
             console.error(`No se pudo actualizar la caché de la imagen ${message.id}.`, cacheError);
           }
           return blob;
-        })();
+        });
         pendingImages.set(cacheKey!, pendingDownload);
       }
 
@@ -147,7 +204,7 @@ export function useTelegramImage(
     return () => {
       cancelled = true;
     };
-  }, [client, message, messageId]);
+  }, [client, isThumbnail, message, messageId]);
 
   return state;
 }

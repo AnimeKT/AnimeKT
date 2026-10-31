@@ -268,7 +268,6 @@ export function TelegramProvider({ children }: Readonly<{ children: ReactNode }>
         console.error('No se pudo desconectar limpiamente la sesión de Telegram.', error);
       }
     }
-
     router.push('/');
   }, [router]);
 

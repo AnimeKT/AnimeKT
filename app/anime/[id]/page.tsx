@@ -9,6 +9,7 @@ import { useTelegram } from '@/context/TelegramContext';
 import { useSharedAnimeData } from '@/context/AnimeDataContext';
 import { useTelegramImage } from '@/hooks/useTelegramImage';
 import { getTelegramMessageText } from '@/hooks/telegramMessageText';
+import { setAnimeInUserList, useUserAnimeLists } from '@/lib/userAnimeLists';
 import CommentSection from '@/components/anime/CommentSection';
 import EpisodeThumbnail from '@/components/anime/EpisodeThumbnail';
 import ThreeDCoverImage from '@/components/anime/3DCoverImage';
@@ -23,6 +24,23 @@ type EpisodeLink = {
   label: string;
   message: TelegramAnimeMessage;
 };
+
+function getSupabaseErrorDetails(error: unknown) {
+  if (typeof error !== 'object' || error === null) {
+    return { message: error, details: undefined, hint: undefined };
+  }
+
+  const details = error as {
+    message?: unknown;
+    details?: unknown;
+    hint?: unknown;
+  };
+  return {
+    message: details.message,
+    details: details.details,
+    hint: details.hint,
+  };
+}
 
 function videoDocument(message: TelegramAnimeMessage) {
   const media = message.media;
@@ -63,7 +81,8 @@ function getEpisodeListSignature(episodes: EpisodeLink[]) {
 export default function AnimeCoverPage() {
   const { id } = useParams<{ id: string }>();
   const { animes, isLoading: isLoadingAnime } = useSharedAnimeData();
-  const { client, isLoading: isTelegramLoading } = useTelegram();
+  const { client, currentUserId, isLoading: isTelegramLoading } = useTelegram();
+  const userLists = useUserAnimeLists(currentUserId);
   const anime = useMemo(
     () => animes.find((item) =>
       item.id === id || item.messageId === Number(id) || item.heroMessageId === Number(id),
@@ -77,8 +96,16 @@ export default function AnimeCoverPage() {
   const [selectedSeasonKey, setSelectedSeasonKey] = useState('');
   const [isLoadingInitialEpisodes, setIsLoadingInitialEpisodes] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isFavorite, setIsFavorite] = useState(false);
-  const [isWatched, setIsWatched] = useState(false);
+  const [listSaveError, setListSaveError] = useState<string | null>(null);
+  const [isUpdatingList, setIsUpdatingList] = useState(false);
+  const isInWatchlist = anime ? userLists.lists.watchlist.includes(anime.id) : false;
+  const isFavorite = anime ? userLists.lists.favorites.includes(anime.id) : false;
+  const isWatched = anime ? userLists.lists.watched.includes(anime.id) : false;
+  const listError = listSaveError ?? (
+    !currentUserId && !isTelegramLoading && anime
+      ? 'El user_id de Telegram no está disponible.'
+      : userLists.error
+  );
   const episodesRef = useRef(episodes);
   const errorRef = useRef(error);
   episodesRef.current = episodes;
@@ -125,16 +152,10 @@ export default function AnimeCoverPage() {
   };
 
   useEffect(() => {
-    if (!anime) return;
-    const favorites = JSON.parse(localStorage.getItem('mis_favoritos') || '[]') as string[];
-    setIsFavorite(favorites.includes(anime.id));
-  }, [anime]);
-
-  useEffect(() => {
-    if (!anime) return;
-    const watchedAnime: unknown = JSON.parse(localStorage.getItem('animes_vistos') || '[]');
-    setIsWatched(Array.isArray(watchedAnime) && watchedAnime.includes(anime.id));
-  }, [anime]);
+    if (anime && !isTelegramLoading && !currentUserId) {
+      console.error('El user_id de Telegram no está disponible');
+    }
+  }, [anime, currentUserId, isTelegramLoading]);
 
   useEffect(() => {
     let cancelled = false;
@@ -202,34 +223,91 @@ export default function AnimeCoverPage() {
     };
   }, [anime, client, selectedSeason]);
 
-  const toggleFavorite = () => {
+  const toggleWatchlist = async () => {
     if (!anime) return;
-    const favorites = JSON.parse(localStorage.getItem('mis_favoritos') || '[]') as string[];
-    const nextFavorites = favorites.includes(anime.id)
-      ? favorites.filter((favorite) => favorite !== anime.id)
-      : [...favorites, anime.id];
-    localStorage.setItem('mis_favoritos', JSON.stringify(nextFavorites));
-    setIsFavorite(!favorites.includes(anime.id));
+    if (!currentUserId) {
+      console.error('El user_id de Telegram no está disponible');
+      return;
+    }
+    if (isUpdatingList) {
+      return;
+    }
+
+    const nextState = !isInWatchlist;
+    setListSaveError(null);
+    setIsUpdatingList(true);
+    try {
+      await setAnimeInUserList(currentUserId, 'watchlist', anime.id, nextState);
+    } catch (err) {
+      const errorDetails = getSupabaseErrorDetails(err);
+      console.error(
+        'Error detallado Supabase:',
+        errorDetails.message,
+        errorDetails.details,
+        errorDetails.hint,
+      );
+      console.error('No se pudo actualizar mi lista en Supabase.', err);
+      setListSaveError('No se pudo actualizar tu lista.');
+    } finally {
+      setIsUpdatingList(false);
+    }
+  };
+
+  const toggleFavorite = async () => {
+    if (!anime) return;
+    if (!currentUserId) {
+      console.error('El user_id de Telegram no está disponible');
+      return;
+    }
+    if (isUpdatingList) return;
+
+    const nextState = !isFavorite;
+    setListSaveError(null);
+    setIsUpdatingList(true);
+    try {
+      await setAnimeInUserList(currentUserId, 'favorites', anime.id, nextState);
+    } catch (err) {
+      const errorDetails = getSupabaseErrorDetails(err);
+      console.error(
+        'Error detallado Supabase:',
+        errorDetails.message,
+        errorDetails.details,
+        errorDetails.hint,
+      );
+      console.error('No se pudo actualizar la lista de favoritos en Supabase.', err);
+      setListSaveError('No se pudo actualizar tu lista.');
+    } finally {
+      setIsUpdatingList(false);
+    }
   };
 
   const handleToggleWatched = async () => {
     if (!anime) return;
-    const previousState = isWatched;
-    const nextState = !previousState;
-    setIsWatched(nextState);
+    if (!currentUserId) {
+      console.error('El user_id de Telegram no está disponible');
+      return;
+    }
+    if (isUpdatingList) {
+      return;
+    }
 
+    const nextState = !isWatched;
+    setListSaveError(null);
+    setIsUpdatingList(true);
     try {
-      const storedWatched: unknown = JSON.parse(localStorage.getItem('animes_vistos') || '[]');
-      const watchedAnime = Array.isArray(storedWatched)
-        ? storedWatched.filter((animeId): animeId is string => typeof animeId === 'string')
-        : [];
-      const nextWatched = nextState
-        ? [...new Set([...watchedAnime, anime.id])]
-        : watchedAnime.filter((animeId) => animeId !== anime.id);
-      localStorage.setItem('animes_vistos', JSON.stringify(nextWatched));
-    } catch (error) {
-      console.error('Error al actualizar el estado de visto:', error);
-      setIsWatched(previousState);
+      await setAnimeInUserList(currentUserId, 'watched', anime.id, nextState);
+    } catch (err) {
+      const errorDetails = getSupabaseErrorDetails(err);
+      console.error(
+        'Error detallado Supabase:',
+        errorDetails.message,
+        errorDetails.details,
+        errorDetails.hint,
+      );
+      console.error('No se pudo actualizar la lista de vistos en Supabase.', err);
+      setListSaveError('No se pudo actualizar tu lista.');
+    } finally {
+      setIsUpdatingList(false);
     }
   };
 
@@ -286,17 +364,20 @@ export default function AnimeCoverPage() {
             ))}
           </div>
           <div className="mt-6 mb-6 flex flex-wrap items-center gap-4">
+            {listError && <p role="alert" className="w-full text-sm text-red-300">{listError}</p>}
             <button
               type="button"
-              aria-pressed={isFavorite}
-              onClick={toggleFavorite}
+              aria-pressed={isInWatchlist}
+              disabled={isUpdatingList}
+              onClick={() => void toggleWatchlist()}
               className="min-h-11 rounded-lg bg-primary px-5 text-sm font-semibold text-white transition-colors hover:bg-primary-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-light"
             >
-              {isFavorite ? '✓ En mi lista' : '＋ Agregar a Lista'}
+              {isInWatchlist ? '✓ En mi lista' : '＋ Agregar a Lista'}
             </button>
             <button
               type="button"
               aria-pressed={isWatched}
+              disabled={isUpdatingList}
               onClick={() => void handleToggleWatched()}
               className={`flex min-h-11 items-center gap-2 rounded-md border px-4 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-light ${
                 isWatched
@@ -320,6 +401,23 @@ export default function AnimeCoverPage() {
                   Marcar como visto
                 </>
               )}
+            </button>
+            <button
+              type="button"
+              aria-label={isFavorite ? 'Quitar de Favoritos' : 'Añadir a Favoritos'}
+              aria-pressed={isFavorite}
+              disabled={isUpdatingList}
+              onClick={() => void toggleFavorite()}
+              className={`flex min-h-11 items-center gap-2 rounded-md border px-4 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pink-300 ${
+                isFavorite
+                  ? 'border-pink-400/50 bg-pink-500/20 text-pink-300'
+                  : 'border-transparent bg-[#2a2a3e] text-gray-300 hover:bg-[#3a2a3e]'
+              }`}
+            >
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill={isFavorite ? 'currentColor' : 'none'} className="h-5 w-5">
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78Z" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              {isFavorite ? 'En Favoritos' : 'Favoritos'}
             </button>
           </div>
           <div className="mt-6 flex flex-wrap items-center gap-2">

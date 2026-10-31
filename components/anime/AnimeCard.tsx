@@ -6,6 +6,8 @@ import { useEffect, useState } from 'react';
 import type { MouseEvent } from 'react';
 import { useTelegramImage } from '@/hooks/useTelegramImage';
 import type { TelegramAnimeMessage } from '@/hooks/anime';
+import { useTelegram } from '@/context/TelegramContext';
+import { setAnimeInUserList, useUserAnimeLists } from '@/lib/userAnimeLists';
 
 type AnimeCardProps = {
   id: string;
@@ -55,71 +57,90 @@ export default function AnimeCard({
   rating,
   href,
   aspectRatio = 'portrait',
-  isFavorite = false,
+  isFavorite: initialFavorite = false,
   onToggleFavorite,
   message,
   messageId,
 }: AnimeCardProps) {
   const ratioClass = aspectRatio === 'landscape' ? 'aspect-video' : 'aspect-[2/3]';
   const { imageUrl: telegramImageUrl } = useTelegramImage(message, messageId);
+  const { currentUserId } = useTelegram();
+  const userLists = useUserAnimeLists(currentUserId);
   const cardHref = href ?? `/anime/${encodeURIComponent(id)}`;
-  const [favorite, setFavorite] = useState(isFavorite);
-  const [isWatched, setIsWatched] = useState(false);
+  const [controlledFavorite, setControlledFavorite] = useState(initialFavorite);
+  const [listError, setListError] = useState<string | null>(null);
+  const [isUpdatingList, setIsUpdatingList] = useState(false);
+  const isFavorite = onToggleFavorite
+    ? controlledFavorite
+    : userLists.lists.favorites.includes(id);
+  const isInWatchlist = userLists.lists.watchlist.includes(id);
+  const isWatched = userLists.lists.watched.includes(id);
 
   useEffect(() => {
-    setFavorite(isFavorite);
-  }, [isFavorite]);
+    setControlledFavorite(initialFavorite);
+  }, [initialFavorite]);
 
-  useEffect(() => {
-    if (onToggleFavorite || typeof window === 'undefined') return;
-    const favorites = JSON.parse(localStorage.getItem('mis_favoritos') || '[]') as string[];
-    setFavorite(favorites.includes(id));
-  }, [id, onToggleFavorite]);
-
-  useEffect(() => {
-    try {
-      const storedWatched: unknown = JSON.parse(localStorage.getItem('animes_vistos') || '[]');
-      setIsWatched(Array.isArray(storedWatched) && storedWatched.includes(id));
-    } catch (error) {
-      console.error('No se pudo leer la lista de animes vistos.', error);
-      setIsWatched(false);
-    }
-  }, [id]);
-
-  const toggleFavorite = () => {
-    if (onToggleFavorite) {
-      onToggleFavorite(id);
-      setFavorite((current) => !current);
+  const toggleWatchlist = async () => {
+    if (!currentUserId || isUpdatingList) {
+      if (!currentUserId) setListError('Conecta tu sesión de Telegram para guardar tu lista.');
       return;
     }
-    const favorites = JSON.parse(localStorage.getItem('mis_favoritos') || '[]') as string[];
-    const next = favorites.includes(id)
-      ? favorites.filter((favoriteId) => favoriteId !== id)
-      : [...favorites, id];
-    localStorage.setItem('mis_favoritos', JSON.stringify(next));
-    setFavorite(!favorites.includes(id));
+
+    const nextState = !isInWatchlist;
+    setListError(null);
+    setIsUpdatingList(true);
+    try {
+      await setAnimeInUserList(currentUserId, 'watchlist', id, nextState);
+    } catch (error) {
+      console.error('No se pudo actualizar la lista de animes en Supabase.', error);
+      setListError('No se pudo actualizar tu lista.');
+    } finally {
+      setIsUpdatingList(false);
+    }
+  };
+
+  const toggleFavorite = async () => {
+    if (onToggleFavorite) {
+      onToggleFavorite(id);
+      setControlledFavorite((current) => !current);
+      return;
+    }
+    if (!currentUserId || isUpdatingList) {
+      if (!currentUserId) setListError('Conecta tu sesión de Telegram para guardar tu lista.');
+      return;
+    }
+
+    const nextState = !isFavorite;
+    setListError(null);
+    setIsUpdatingList(true);
+    try {
+      await setAnimeInUserList(currentUserId, 'favorites', id, nextState);
+    } catch (error) {
+      console.error('No se pudo actualizar la lista de favoritos en Supabase.', error);
+      setListError('No se pudo actualizar tu lista.');
+    } finally {
+      setIsUpdatingList(false);
+    }
   };
 
   const handleToggleWatched = async (event: MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
     event.stopPropagation();
+    if (!currentUserId || isUpdatingList) {
+      if (!currentUserId) setListError('Conecta tu sesión de Telegram para guardar tu lista.');
+      return;
+    }
 
-    const previousState = isWatched;
-    const nextState = !previousState;
-    setIsWatched(nextState);
-
+    const nextState = !isWatched;
+    setListError(null);
+    setIsUpdatingList(true);
     try {
-      const storedWatched: unknown = JSON.parse(localStorage.getItem('animes_vistos') || '[]');
-      const watchedAnime = Array.isArray(storedWatched)
-        ? storedWatched.filter((animeId): animeId is string => typeof animeId === 'string')
-        : [];
-      const nextWatched = nextState
-        ? [...new Set([...watchedAnime, id])]
-        : watchedAnime.filter((animeId) => animeId !== id);
-      localStorage.setItem('animes_vistos', JSON.stringify(nextWatched));
+      await setAnimeInUserList(currentUserId, 'watched', id, nextState);
     } catch (error) {
-      console.error('Error al actualizar el estado de visto:', error);
-      setIsWatched(previousState);
+      console.error('No se pudo actualizar la lista de vistos en Supabase.', error);
+      setListError('No se pudo actualizar tu lista.');
+    } finally {
+      setIsUpdatingList(false);
     }
   };
 
@@ -156,25 +177,32 @@ export default function AnimeCard({
           <p className="line-clamp-5 flex-1 overflow-hidden text-xs text-gray-300">
             {description}
           </p>
+          {(listError || userLists.error) && (
+            <p role="alert" className="mt-2 text-xs text-red-300">
+              {listError ?? userLists.error}
+            </p>
+          )}
           <div className="pointer-events-auto mt-3 flex items-center gap-2">
             <button
               type="button"
-              aria-label={favorite ? `Quitar ${title} de mi lista` : `Añadir ${title} a mi lista`}
-              aria-pressed={favorite}
+              aria-label={isInWatchlist ? `Quitar ${title} de mi lista` : `Añadir ${title} a mi lista`}
+              aria-pressed={isInWatchlist}
+              disabled={isUpdatingList}
               onClick={(event) => {
                 event.preventDefault();
                 event.stopPropagation();
-                toggleFavorite();
+                void toggleWatchlist();
               }}
               className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-white/15 bg-black/60 text-primary-light transition-colors hover:border-primary-light hover:bg-primary/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
             >
-              <BookmarkIcon filled={favorite} />
+              <BookmarkIcon filled={isInWatchlist} />
             </button>
             <button
               type="button"
               aria-label={isWatched ? `Desmarcar ${title} como visto` : `Marcar ${title} como visto`}
               aria-pressed={isWatched}
               title={isWatched ? 'Desmarcar como visto' : 'Marcar como visto'}
+              disabled={isUpdatingList}
               onClick={(event) => void handleToggleWatched(event)}
               className={`shrink-0 rounded-md border p-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white ${
                 isWatched
@@ -192,6 +220,27 @@ export default function AnimeCard({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
                 </svg>
               )}
+            </button>
+            <button
+              type="button"
+              aria-label={isFavorite ? `Quitar ${title} de favoritos` : `Añadir ${title} a favoritos`}
+              aria-pressed={isFavorite}
+              title={isFavorite ? 'En Favoritos' : 'Añadir a Favoritos'}
+              disabled={isUpdatingList}
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                void toggleFavorite();
+              }}
+              className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white ${
+                isFavorite
+                  ? 'border-pink-400 bg-pink-500/20 text-pink-300'
+                  : 'border-white/15 bg-black/60 text-gray-300 hover:border-pink-300 hover:text-pink-300'
+              }`}
+            >
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill={isFavorite ? 'currentColor' : 'none'} className="h-5 w-5">
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78Z" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
             </button>
           </div>
         </div>

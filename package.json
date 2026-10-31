@@ -24,6 +24,7 @@
   },
   "homepage": "https://github.com/AnimeKT/AnimeKT#readme",
   "dependencies": {
+    "@supabase/supabase-js": "^2.118.0",
     "@upstash/redis": "^1.39.0",
     "big-integer": "^1.6.52",
     "localforage": "^1.10.0",

@@ -25,10 +25,10 @@ type NavbarProps = {
 };
 
 const navigation = [
-  { href: '/home', label: 'Inicio' },
   { href: '/catalogo', label: 'Catálogo' },
   { href: '/horario', label: 'Horario' },
   { href: '/favoritos', label: 'Mi lista' },
+  { href: '/album', label: 'Álbum' },
 ];
 
 function SearchResultLink({ item, onClick }: { item: NavbarSearchItem; onClick: () => void }) {
