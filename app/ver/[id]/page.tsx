@@ -11,11 +11,14 @@ import { extractAnimeData, parseAnimeMessages } from '@/hooks/useAnimeData';
 import type { TelegramAnimeMessage } from '@/hooks/anime';
 import { useTelegramImage } from '@/hooks/useTelegramImage';
 import { getTelegramMessageText } from '@/hooks/telegramMessageText';
+import { getTelegramForumTopicNames } from '@/hooks/telegramForumTopics';
 
 const ANIME_GROUP = 'AnimeKT1';
 const EPISODE_GROUP = 'AnimeKTe';
 const CATALOG_TOPIC = 16;
 const ITEMS_PER_PAGE = 100;
+const INVALID_EPISODE_TOPIC_ERROR =
+  'Esta temporada aún no ha sido subida o no tiene episodios disponibles.';
 
 type Language = 'Sub' | 'Dub';
 
@@ -85,6 +88,7 @@ export default function AnimePlayerPage() {
   const [bannerMessage, setBannerMessage] = useState<TelegramAnimeMessage | null>(null);
   const { imageUrl: bannerImageUrl } = useTelegramImage(bannerMessage ?? undefined);
   const [language, setLanguage] = useState<Language>('Sub');
+  const [topicNames, setTopicNames] = useState<Map<number, string>>(() => new Map());
   const [selectedTopicId, setSelectedTopicId] = useState<number | null>(null);
   const [episodes, setEpisodes] = useState<Episode[]>([]);
   const [currentRange, setCurrentRange] = useState(0);
@@ -112,6 +116,38 @@ export default function AnimePlayerPage() {
     [anime, language],
   );
   const activeSeasonIndex = selectedTopicId === null ? 0 : seasonTopics.indexOf(selectedTopicId);
+
+  useEffect(() => {
+    let cancelled = false;
+    const topicIds = [
+      ...(anime?.topicsSub ?? []),
+      ...(anime?.topicsDub ?? []),
+      ...(selectedTopicId === null ? [] : [selectedTopicId]),
+    ];
+    if (!client || topicIds.length === 0) {
+      setTopicNames(new Map());
+      return;
+    }
+    setTopicNames(new Map());
+
+    const loadTopicNames = async () => {
+      try {
+        await client.connect();
+        const names = await getTelegramForumTopicNames(client, EPISODE_GROUP, topicIds);
+        if (!cancelled) setTopicNames(names);
+      } catch (loadError) {
+        if (!cancelled) {
+          console.error('No se pudieron cargar los nombres de los Topics de episodios.', loadError);
+          setTopicNames(new Map());
+        }
+      }
+    };
+
+    void loadTopicNames();
+    return () => {
+      cancelled = true;
+    };
+  }, [anime, client, selectedTopicId]);
 
   useEffect(() => {
     const routeQuery = new URLSearchParams(window.location.search);
@@ -320,7 +356,13 @@ export default function AnimePlayerPage() {
         }
       } catch (loadError) {
         if (!cancelled) {
-          setEpisodeError(loadError instanceof Error ? loadError.message : String(loadError));
+          const message = loadError instanceof Error ? loadError.message : String(loadError);
+          setEpisodes([]);
+          setSelectedEpisode(null);
+          setCurrentRange(0);
+          setEpisodeError(/MSG_ID_INVALID|MESSAGE_ID_INVALID/i.test(message)
+            ? INVALID_EPISODE_TOPIC_ERROR
+            : message);
         }
       } finally {
         if (!cancelled) setIsLoadingEpisodes(false);
@@ -380,7 +422,10 @@ export default function AnimePlayerPage() {
   }, [animeId, selectedEpisode, selectedTopicId]);
 
   const handleSeasonChange = (topicId: number) => {
+    setEpisodes([]);
+    setSelectedEpisode(null);
     setCurrentRange(0);
+    setEpisodeError(null);
     setSelectedTopicId(topicId);
     setStartTime(0);
   };
@@ -500,15 +545,24 @@ export default function AnimePlayerPage() {
                   >
                     {seasonTopics.map((topicId, index) => (
                       <option key={`season-${topicId || 'default'}-${index}`} value={topicId}>
-                        {language} · {seasonTopics.length === 1 ? 'Temporada Única' : `Temporada ${index + 1}`}
+                        {topicNames.get(topicId) ?? `Topic ${topicId}`}
                       </option>
                     ))}
                   </select>
                 </label>
               )}
               {episodeError && (
-                <p role="alert" className="mt-4 rounded-lg border border-red-400/20 bg-red-400/10 px-3 py-2 text-xs text-red-200">
-                  No se pudieron cargar episodios: {episodeError}
+                <p
+                  role="alert"
+                  className={`mt-4 rounded-lg border px-3 py-2 text-xs ${
+                    episodeError === INVALID_EPISODE_TOPIC_ERROR
+                      ? 'border-sky-400/20 bg-sky-400/10 text-sky-100'
+                      : 'border-red-400/20 bg-red-400/10 text-red-200'
+                  }`}
+                >
+                  {episodeError === INVALID_EPISODE_TOPIC_ERROR
+                    ? episodeError
+                    : `No se pudieron cargar episodios: ${episodeError}`}
                 </p>
               )}
               {isLoadingEpisodes ? (

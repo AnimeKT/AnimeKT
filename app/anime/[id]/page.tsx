@@ -9,6 +9,7 @@ import { useTelegram } from '@/context/TelegramContext';
 import { useSharedAnimeData } from '@/context/AnimeDataContext';
 import { useTelegramImage } from '@/hooks/useTelegramImage';
 import { getTelegramMessageText } from '@/hooks/telegramMessageText';
+import { getTelegramForumTopicNames } from '@/hooks/telegramForumTopics';
 import { setAnimeInUserList, useUserAnimeLists } from '@/lib/userAnimeLists';
 import CommentSection from '@/components/anime/CommentSection';
 import EpisodeThumbnail from '@/components/anime/EpisodeThumbnail';
@@ -54,9 +55,12 @@ function videoDocument(message: TelegramAnimeMessage) {
 function episodeLabel(message: TelegramAnimeMessage, fallback: number) {
   const text = getTelegramMessageText(message).trim();
   const explicitNumber = text.match(/\[(\d+(?:\.\d+)?)\]/)?.[1] ?? text.match(/\b(?:ep(?:isode|isodio)?\.?\s*)?(\d+\.\d+|\d+)\b/i)?.[1];
-  if (explicitNumber) return `Episodio ${explicitNumber}`;
+  if (explicitNumber) return { label: `Episodio ${explicitNumber}`, usesAutoNumber: false };
   const special = text.match(/ova|pel[íi]cula|especial/i)?.[0];
-  return special ? special.toUpperCase() : `Episodio ${fallback}`;
+  return {
+    label: special ? special.toUpperCase() : `Episodio ${fallback}`,
+    usesAutoNumber: true,
+  };
 }
 
 function getEpisodeListSignature(episodes: EpisodeLink[]) {
@@ -92,6 +96,7 @@ export default function AnimeCoverPage() {
   const { imageUrl } = useTelegramImage(anime?.message, anime?.messageId);
   const { imageUrl: bannerImageUrl } = useTelegramImage(anime?.heroMessage, anime?.heroMessageId);
   const [episodes, setEpisodes] = useState<EpisodeLink[]>([]);
+  const [topicNames, setTopicNames] = useState<Map<number, string>>(() => new Map());
   const [selectedLanguage, setSelectedLanguage] = useState<'Sub' | 'Dub'>('Sub');
   const [selectedSeasonKey, setSelectedSeasonKey] = useState('');
   const [isLoadingInitialEpisodes, setIsLoadingInitialEpisodes] = useState(false);
@@ -121,6 +126,34 @@ export default function AnimeCoverPage() {
       return { language, topicId: Number(topicId) };
     });
   }, [anime]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const topicIds = episodeTopics.map(({ topicId }) => topicId);
+    if (!client || topicIds.length === 0) {
+      setTopicNames(new Map());
+      return;
+    }
+    setTopicNames(new Map());
+
+    const loadTopicNames = async () => {
+      try {
+        await client.connect();
+        const names = await getTelegramForumTopicNames(client, EPISODE_GROUP, topicIds);
+        if (!cancelled) setTopicNames(names);
+      } catch (loadError) {
+        if (!cancelled) {
+          console.error('No se pudieron cargar los nombres de los Topics de episodios.', loadError);
+          setTopicNames(new Map());
+        }
+      }
+    };
+
+    void loadTopicNames();
+    return () => {
+      cancelled = true;
+    };
+  }, [client, episodeTopics]);
 
   useEffect(() => {
     const firstTopic = episodeTopics[0];
@@ -179,13 +212,18 @@ export default function AnimeCoverPage() {
           replyTo: selectedSeason.topicId,
           limit: 100,
         });
-        const selectedEpisodes = messages.filter(videoDocument).reverse().map((message, index) => ({
-          id: message.id,
-          topicId: selectedSeason.topicId,
-          language: selectedSeason.language,
-          label: episodeLabel(message, index + 1),
-          message,
-        }));
+        let autoEpisodeNumber = 1;
+        const selectedEpisodes = messages.filter(videoDocument).reverse().map((message) => {
+          const episode = episodeLabel(message, autoEpisodeNumber);
+          if (episode.usesAutoNumber) autoEpisodeNumber += 1;
+          return {
+            id: message.id,
+            topicId: selectedSeason.topicId,
+            language: selectedSeason.language,
+            label: episode.label,
+            message,
+          };
+        });
         if (!cancelled) {
           if (getEpisodeListSignature(episodesRef.current) !== getEpisodeListSignature(selectedEpisodes)) {
             setEpisodes(selectedEpisodes);
@@ -483,9 +521,9 @@ export default function AnimeCoverPage() {
                   onChange={(event) => handleSeasonChange(Number(event.target.value.split(':')[1]))}
                   className="min-h-11 min-w-52 rounded-lg border border-white/10 bg-[#1f2937] px-4 text-white outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/25"
                 >
-                  {languageTopics.map(({ topicId }, index) => (
+                  {languageTopics.map(({ topicId }) => (
                     <option key={`season-${selectedLanguage}-${topicId}`} value={`${selectedLanguage}:${topicId}`}>
-                      Temporada {index + 1}
+                      {topicNames.get(topicId) ?? `Topic ${topicId}`}
                     </option>
                   ))}
                 </select>
